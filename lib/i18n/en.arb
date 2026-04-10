@@ -1,0 +1,34 @@
+{
+  "@@locale": "en",
+
+  "navChat": "Chat",
+  "navDocuments": "Documents",
+  "navSettings": "Settings",
+
+  "chatPlaceholder": "Type a message...",
+  "chatSend": "Send",
+  "chatThinking": "Thinking...",
+  "chatNewSession": "New conversation",
+  "chatEmptyTitle": "Ready to chat",
+  "chatEmptySubtitle": "Your AI runs locally.\nNo data ever leaves your device.",
+
+  "docsImport": "Import document",
+  "docsProcessing": "Processing",
+  "docsReady": "Document ready",
+  "docsChunks": "chunks",
+  "docsIndexed": "in local index",
+
+  "setupWelcome": "Welcome to InHausKI",
+  "setupDownloading": "Loading AI model",
+  "setupContinue": "Continue",
+  "setupFinish": "Finish",
+
+  "settingsModel": "AI Model",
+  "settingsModelNotLoaded": "Not loaded",
+  "settingsGpu": "GPU Acceleration",
+  "settingsGpuAuto": "Automatic",
+  "settingsGpuForce": "Always GPU",
+  "settingsGpuCpu": "CPU only",
+  "settingsLanguage": "Language",
+  "settingsReset": "Reset setup"
+}

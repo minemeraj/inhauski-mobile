@@ -1,0 +1,34 @@
+{
+  "@@locale": "de",
+
+  "navChat": "Chat",
+  "navDocuments": "Dokumente",
+  "navSettings": "Einstellungen",
+
+  "chatPlaceholder": "Nachricht eingeben...",
+  "chatSend": "Senden",
+  "chatThinking": "Denkt nach...",
+  "chatNewSession": "Neues Gespräch",
+  "chatEmptyTitle": "Bereit zum Chatten",
+  "chatEmptySubtitle": "Ihre KI läuft lokal.\nKeine Daten verlassen Ihr Gerät.",
+
+  "docsImport": "Dokument importieren",
+  "docsProcessing": "Verarbeite",
+  "docsReady": "Dokument bereit",
+  "docsChunks": "Abschnitte",
+  "docsIndexed": "im lokalen Index",
+
+  "setupWelcome": "Willkommen bei InHausKI",
+  "setupDownloading": "KI-Modell laden",
+  "setupContinue": "Weiter",
+  "setupFinish": "Fertig",
+
+  "settingsModel": "KI-Modell",
+  "settingsModelNotLoaded": "Nicht geladen",
+  "settingsGpu": "GPU-Beschleunigung",
+  "settingsGpuAuto": "Automatisch",
+  "settingsGpuForce": "Immer GPU",
+  "settingsGpuCpu": "Nur CPU",
+  "settingsLanguage": "Sprache",
+  "settingsReset": "Setup zurücksetzen"
+}
