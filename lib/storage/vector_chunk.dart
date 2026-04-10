@@ -17,6 +17,9 @@ class VectorChunk {
   String text;
 
   /// 384-dim float32 embedding from multilingual-e5-small.
+  /// ObjectBox 5.x requires @Property(type: PropertyType.floatVector)
+  /// alongside @HnswIndex for float vector properties.
+  @Property(type: PropertyType.floatVector)
   @HnswIndex(dimensions: 384)
   List<double> embedding;
 
