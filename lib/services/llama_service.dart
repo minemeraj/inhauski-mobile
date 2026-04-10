@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:isolate';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,9 +29,8 @@ class LlamaService extends ChangeNotifier {
   GpuMode _gpuMode = GpuMode.auto;
   String? _errorMessage;
 
-  // ignore: unused_field
-  Isolate? _llamaIsolate;
-  SendPort? _llamaSendPort;
+  late LlamaCppDart _llamaCpp;
+  late SendPort? _llamaSendPort;
 
   bool get isSetupComplete => _isSetupComplete;
   bool get isModelLoaded => _isModelLoaded;
@@ -97,26 +97,33 @@ class LlamaService extends ChangeNotifier {
     try {
       final nGpuLayers = _gpuMode == GpuMode.cpu ? 0 : _defaultNGpuLayers;
 
-      // TODO: Replace stub with actual llama_cpp_dart initialization once the
-      // package is imported.  Pattern:
-      //
-      //   final params = LlamaParams(
-      //     nGpuLayers: nGpuLayers,
-      //     nCtx: 4096,
-      //     nBatch: 512,
-      //   );
-      //   await LlamaContext.load(path, params);
-      //
-      // For now, simulate success so the UI compiles and runs in emulator.
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Verify file exists
+      final modelFile = File(path);
+      if (!await modelFile.exists()) {
+        throw Exception('Model file not found: $path');
+      }
 
-      debugPrint('[LlamaService] Model loaded: $path (ngl=$nGpuLayers)');
+      // Initialize llama_cpp_dart with GPU acceleration
+      _llamaCpp = LlamaCppDart(
+        modelPath: path,
+        numGpuLayers: nGpuLayers,
+        contextSize: 4096,
+        batchSize: 512,
+        numThreads: Platform.numberOfProcessors > 4 ? 4 : 2,
+      );
+
+      debugPrint('[LlamaService] Initializing model: $path (ngl=$nGpuLayers)');
+      await _llamaCpp.initialize();
+
       _isModelLoaded = true;
+      _modelPath = path;
+      debugPrint('[LlamaService] Model loaded successfully');
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
-      debugPrint('[LlamaService] Load error: $e');
+      _errorMessage = 'Model load error: $e';
+      debugPrint('[LlamaService] Load error: $_errorMessage');
       notifyListeners();
+      rethrow;
     }
   }
 
@@ -134,23 +141,22 @@ class LlamaService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // TODO: Replace stub with actual streaming inference.  Pattern:
-      //
-      //   final stream = LlamaContext.instance.completionStream(
-      //     messages: messages,
-      //     maxTokens: maxTokens,
-      //     temperature: temperature,
-      //   );
-      //   await for (final token in stream) {
-      //     onToken(token);
-      //   }
-      //
-      // Stub: simulate streaming for UI development
-      const reply = 'Ich bin InHausKI. Wie kann ich Ihnen helfen?';
-      for (final char in reply.split('')) {
-        onToken(char);
-        await Future.delayed(const Duration(milliseconds: 20));
+      // Format messages for llama_cpp_dart chat completion
+      // llama_cpp_dart expects a list of maps with 'role' and 'content'
+      final stream = _llamaCpp.generateStream(
+        messages: messages,
+        maxTokens: maxTokens,
+        temperature: temperature,
+      );
+
+      await for (final token in stream) {
+        onToken(token);
       }
+    } catch (e) {
+      _errorMessage = 'Inference error: $e';
+      debugPrint('[LlamaService] Inference error: $_errorMessage');
+      notifyListeners();
+      rethrow;
     } finally {
       _isInferring = false;
       notifyListeners();
@@ -158,16 +164,21 @@ class LlamaService extends ChangeNotifier {
   }
 
   /// Generate an embedding vector for [text].
-  /// Returns a float32 list of dimension 768 (nomic-embed-text).
+  /// Returns a float32 list of dimension 384 (for multilingual-e5-small).
   Future<List<double>> embed(String text) async {
     if (!_isModelLoaded) throw StateError('Model not loaded');
 
-    // TODO: Replace stub with actual embedding call.  Pattern:
-    //
-    //   return await LlamaContext.instance.embed(text);
-    //
-    // Stub: return a zero vector
-    return List.filled(768, 0.0);
+    try {
+      // Use llama_cpp_dart's embedding capability
+      // The embedding model (multilingual-e5-small) produces 384-dim vectors
+      final embedding = await _llamaCpp.embed(text);
+      return embedding;
+    } catch (e) {
+      _errorMessage = 'Embedding error: $e';
+      debugPrint('[LlamaService] Embedding error: $_errorMessage');
+      notifyListeners();
+      rethrow;
+    }
   }
 
   /// Get the models directory inside app documents.

@@ -1,6 +1,8 @@
 {
   "@@locale": "de",
 
+  "appSubtitle": "Offline KI-Assistent",
+
   "navChat": "Chat",
   "navDocuments": "Dokumente",
   "navSettings": "Einstellungen",
@@ -23,6 +25,9 @@
   "setupContinue": "Weiter",
   "setupFinish": "Fertig",
 
+  "loadingModelMessage": "Lade Gemma 4 2B...",
+  "loadingModelSubtitle": "Dies kann beim ersten Start einige Minuten dauern.",
+
   "settingsModel": "KI-Modell",
   "settingsModelNotLoaded": "Nicht geladen",
   "settingsGpu": "GPU-Beschleunigung",
@@ -30,5 +35,7 @@
   "settingsGpuForce": "Immer GPU",
   "settingsGpuCpu": "Nur CPU",
   "settingsLanguage": "Sprache",
-  "settingsReset": "Setup zurücksetzen"
+  "settingsReset": "Setup zurücksetzen",
+  
+  "buttonRetry": "Erneut versuchen"
 }

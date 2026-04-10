@@ -9,6 +9,7 @@ import 'screens/chat_screen.dart';
 import 'screens/documents_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/setup_wizard.dart';
+import 'screens/loading_screen.dart';
 import 'i18n/app_localizations.dart';
 
 void main() async {
@@ -24,7 +25,11 @@ class InHausKIApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LlamaService()),
-        ChangeNotifierProvider(create: (_) => RagService()),
+        ChangeNotifierProxyProvider<LlamaService, RagService>(
+          create: (context) => RagService(context.read<LlamaService>()),
+          update: (context, llamaService, ragService) =>
+              ragService ?? RagService(llamaService),
+        ),
         ChangeNotifierProvider(create: (_) => ChatHistory()),
       ],
       child: Consumer<LlamaService>(
@@ -45,9 +50,11 @@ class InHausKIApp extends StatelessWidget {
               Locale('de'), // German — default
               Locale('en'), // English
             ],
-            home: llama.isSetupComplete
-                ? const MainShell()
-                : const SetupWizard(),
+            home: !llama.isSetupComplete
+                ? const SetupWizard()
+                : llama.isModelLoaded
+                    ? const MainShell()
+                    : const LoadingScreen(),
           );
         },
       ),

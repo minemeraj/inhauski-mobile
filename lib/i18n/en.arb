@@ -1,6 +1,8 @@
 {
   "@@locale": "en",
 
+  "appSubtitle": "Offline AI Assistant",
+  
   "navChat": "Chat",
   "navDocuments": "Documents",
   "navSettings": "Settings",
@@ -23,6 +25,9 @@
   "setupContinue": "Continue",
   "setupFinish": "Finish",
 
+  "loadingModelMessage": "Loading Gemma 4 2B...",
+  "loadingModelSubtitle": "This may take a few minutes on first run.",
+
   "settingsModel": "AI Model",
   "settingsModelNotLoaded": "Not loaded",
   "settingsGpu": "GPU Acceleration",
@@ -30,5 +35,7 @@
   "settingsGpuForce": "Always GPU",
   "settingsGpuCpu": "CPU only",
   "settingsLanguage": "Language",
-  "settingsReset": "Reset setup"
+  "settingsReset": "Reset setup",
+  
+  "buttonRetry": "Retry"
 }

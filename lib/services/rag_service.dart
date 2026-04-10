@@ -31,9 +31,8 @@ class RagService extends ChangeNotifier {
   bool get isIngesting => _isIngesting;
   int get totalChunks => _totalChunks;
 
-  RagService() : _llama = LlamaService();
-
-  RagService.withLlama(this._llama);
+  /// Constructor: Pass the LlamaService instance from Provider
+  RagService(this._llama);
 
   // ── Ingestion ──────────────────────────────────────────────────────────────
 
