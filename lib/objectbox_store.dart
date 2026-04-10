@@ -3,10 +3,12 @@ import 'package:objectbox/objectbox.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
-import 'vector_chunk.dart';
-export 'vector_chunk.dart';
+import 'storage/vector_chunk.dart';
+export 'storage/vector_chunk.dart';
 
 // The generated binding is in objectbox.g.dart (part of this library).
+// objectbox_generator outputs this file at lib/objectbox.g.dart when the
+// store file lives at the lib/ root (the standard objectbox project layout).
 // Run:  dart run build_runner build --delete-conflicting-outputs
 part 'objectbox.g.dart';
 

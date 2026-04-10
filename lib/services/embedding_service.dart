@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:math';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,9 +10,11 @@ const _kEmbedPathKey = 'inhauski_embed_model_path';
 /// EmbeddingService manages a dedicated llama.cpp instance loaded with an
 /// embedding-optimised GGUF (multilingual-e5-small, ~90 MB, 384 dims).
 ///
+/// Uses [Llama.getEmbeddings] from llama_cpp_dart, which runs the model in
+/// embedding mode and returns a normalised float32 vector.
+///
 /// Keeping the embedding model separate from the chat model means:
 ///   • The chat model context is never polluted by embedding mode.
-///   • Both models can run on GPU simultaneously on capable hardware.
 ///   • The embedding model can be swapped without touching chat settings.
 class EmbeddingService extends ChangeNotifier {
   static const int embeddingDimension = 384;
@@ -22,7 +24,7 @@ class EmbeddingService extends ChangeNotifier {
   String? _modelPath;
   String? _errorMessage;
 
-  late LlamaCppDart _embedCpp;
+  Llama? _llama;
 
   bool get isLoaded => _isLoaded;
   bool get isLoading => _isLoading;
@@ -53,19 +55,23 @@ class EmbeddingService extends ChangeNotifier {
         throw Exception('Embedding model not found: $path');
       }
 
+      // Dispose previous instance if any
+      _llama?.dispose();
+      _llama = null;
+
       // Embedding models benefit from all layers on GPU (small model).
-      // numThreads = 1 is fine; embedding is single-shot, not streaming.
-      _embedCpp = LlamaCppDart(
-        modelPath: path,
-        numGpuLayers: 99,
-        contextSize: 512, // e5-small max sequence length
-        batchSize: 512,
-        numThreads: 1,
-        embeddingMode: true, // tell llama.cpp this is an embedding model
+      // nCtx = 512 matches e5-small max sequence length.
+      _llama = Llama(
+        path,
+        modelParams: ModelParams()..nGpuLayers = 99,
+        contextParams: ContextParams()
+          ..nCtx = 512
+          ..nBatch = 512
+          ..nThreads = 1
+          ..embeddings = true, // enable embedding mode in llama.cpp context
       );
 
       debugPrint('[EmbeddingService] Loading: $path');
-      await _embedCpp.initialize();
 
       _modelPath = path;
       _isLoaded = true;
@@ -85,18 +91,22 @@ class EmbeddingService extends ChangeNotifier {
     }
   }
 
-  /// Embed [text] and return a 384-dim float vector.
+  /// Embed [text] and return a 384-dim L2-normalised float vector.
   Future<List<double>> embed(String text) async {
-    if (!_isLoaded) throw StateError('Embedding model not loaded');
-    final vec = await _embedCpp.embed(text);
-    // Normalise to unit length (cosine similarity = dot product after norm)
+    if (!_isLoaded || _llama == null) {
+      throw StateError('Embedding model not loaded');
+    }
+    // getEmbeddings runs synchronously in the calling isolate; it is fast
+    // (~5 ms for 384-dim e5-small) so running it on the main isolate is fine.
+    // normalize: true → llama.cpp normalises the vector to unit length.
+    final vec = _llama!.getEmbeddings(text, normalize: true);
     return _l2Normalize(vec);
   }
 
   List<double> _l2Normalize(List<double> v) {
     final sumSq = v.fold(0.0, (double s, x) => s + x * x);
     if (sumSq == 0) return v;
-    final invNorm = 1.0 / sqrt(sumSq); // sqrt(sumSq) = L2 norm
+    final invNorm = 1.0 / sqrt(sumSq);
     return v.map((x) => x * invNorm).toList();
   }
 
@@ -104,14 +114,15 @@ class EmbeddingService extends ChangeNotifier {
   Future<void> reset() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kEmbedPathKey);
+    _llama?.dispose();
+    _llama = null;
     _isLoaded = false;
     _modelPath = null;
     notifyListeners();
   }
 
   /// Default filename for the embedding model download.
-  static const String defaultFilename =
-      'multilingual-e5-small-Q8_0.gguf';
+  static const String defaultFilename = 'multilingual-e5-small-Q8_0.gguf';
 
   /// Hugging Face download URL for multilingual-e5-small Q8_0 GGUF (~90 MB).
   static const String downloadUrl =
@@ -124,5 +135,11 @@ class EmbeddingService extends ChangeNotifier {
   static Future<String> get defaultModelPath async {
     final dir = await getApplicationDocumentsDirectory();
     return '${dir.path}/models/$defaultFilename';
+  }
+
+  @override
+  void dispose() {
+    _llama?.dispose();
+    super.dispose();
   }
 }

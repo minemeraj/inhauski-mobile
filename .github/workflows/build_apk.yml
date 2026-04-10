@@ -81,6 +81,7 @@ jobs:
       # Also create the assets/models/ directory declared in pubspec.yaml.
       - name: Remove stale generated stubs + create asset dirs
         run: |
+          rm -f lib/objectbox.g.dart
           rm -f lib/storage/objectbox.g.dart
           rm -f lib/storage/app_database.g.dart
           mkdir -p assets/models

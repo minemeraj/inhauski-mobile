@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:objectbox/objectbox.dart';
 
 import 'embedding_service.dart';
-import '../storage/objectbox_store.dart';
+import '../objectbox_store.dart';
 
 /// A retrieved chunk returned to the caller.
 class RetrievedChunk {

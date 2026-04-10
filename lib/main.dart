@@ -9,7 +9,7 @@ import 'services/locale_service.dart';
 import 'services/rag_service.dart';
 import 'storage/app_database.dart';
 import 'storage/chat_history.dart';
-import 'storage/objectbox_store.dart';
+import 'objectbox_store.dart';
 import 'screens/chat_screen.dart';
 import 'screens/documents_screen.dart';
 import 'screens/settings_screen.dart';

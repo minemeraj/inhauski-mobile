@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:pdfx/pdfx.dart';
 import 'package:provider/provider.dart';
 
 import '../services/embedding_service.dart';
@@ -147,19 +146,14 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 
   Future<String> _extractPdfText(String path) async {
-    final doc = await PdfDocument.openFile(path);
-    final buf = StringBuffer();
-    for (int i = 1; i <= doc.pagesCount; i++) {
-      final page = await doc.getPage(i);
-      final ranges = await page.getTextRanges();
-      for (final range in ranges) {
-        buf.write(range.text);
-        buf.write(' ');
-      }
-      await page.close();
-    }
-    await doc.close();
-    return buf.toString();
+    // pdfx is a PDF viewer package and does not support text extraction.
+    // PDF text ingestion requires a dedicated extraction library.
+    // For now, throw an informative error so the user knows PDFs aren't
+    // supported for RAG ingestion yet (TXT and MD files work fine).
+    throw UnsupportedError(
+      'PDF text extraction is not yet supported. '
+      'Please convert your PDF to a .txt file first.',
+    );
   }
 
   // ── Confirm-delete dialog ─────────────────────────────────────────────────
