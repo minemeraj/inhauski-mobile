@@ -19,6 +19,10 @@
   "docsReady": "Dokument bereit",
   "docsChunks": "Abschnitte",
   "docsIndexed": "im lokalen Index",
+  "docsFormats": "Unterstützte Formate: PDF, TXT, Markdown",
+  "docsClearIndex": "Index leeren",
+  "docsClearIndexDone": "Dokumentenindex geleert.",
+  "docsError": "Fehler",
 
   "setupWelcome": "Willkommen bei InHausKI",
   "setupTagline": "Ihre KI. Ihr Gerät. Kein Internet.",
@@ -39,10 +43,19 @@
   "settingsModelNotLoaded": "Nicht geladen",
   "settingsGpu": "GPU-Beschleunigung",
   "settingsGpuAuto": "Automatisch",
+  "settingsGpuSubtitleAuto": "Metal (iOS) / OpenCL (Android)",
   "settingsGpuForce": "Immer GPU",
   "settingsGpuCpu": "Nur CPU",
+  "settingsGpuSubtitleCpu": "Langsamer, aber kompatibel",
   "settingsLanguage": "Sprache",
+  "settingsLanguageSystem": "Systemsprache verwenden",
+  "settingsDataReset": "Daten & Reset",
+  "settingsResetDialogTitle": "Setup zurücksetzen?",
+  "settingsResetDialogBody": "Dies löscht die Einrichtung. Das Modell bleibt erhalten.",
   "settingsReset": "Setup zurücksetzen",
-  
+  "settingsAbout": "Über InHausKI",
+  "settingsAboutSubtitle": "100% offline · DSGVO-konform",
+  "buttonCancel": "Abbrechen",
+  "buttonConfirm": "Zurücksetzen",
   "buttonRetry": "Erneut versuchen"
 }

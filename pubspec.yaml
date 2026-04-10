@@ -29,6 +29,9 @@ dependencies:
   # ── Document import (iOS Files app + Android Storage Access Framework) ─────
   file_picker: ^8.1.2
 
+  # ── PDF text extraction ────────────────────────────────────────────────────
+  pdfx: ^2.6.0
+
   # ── Model download with progress ───────────────────────────────────────────
   http: ^1.2.1
 

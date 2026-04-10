@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/llama_service.dart';
+import '../services/locale_service.dart';
 import '../i18n/app_localizations.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -11,6 +12,9 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final llama = context.watch<LlamaService>();
+    final localeService = context.watch<LocaleService>();
+    final currentLang = localeService.locale?.languageCode ??
+        Localizations.localeOf(context).languageCode;
 
     return Scaffold(
       appBar: AppBar(title: Text(loc.navSettings)),
@@ -20,11 +24,14 @@ class SettingsScreen extends StatelessWidget {
           _SectionHeader(title: loc.settingsModel),
           ListTile(
             leading: const Icon(Icons.smart_toy_outlined),
-            title: const Text('Gemma 4 E2B Instruct'),
+            title: const Text('Gemma 4 2B Instruct (Q4_K_M)'),
             subtitle: Text(llama.modelPath ?? loc.settingsModelNotLoaded),
             trailing: llama.isModelLoaded
                 ? const Icon(Icons.check_circle, color: Colors.green)
-                : const Icon(Icons.error_outline, color: Colors.orange),
+                : llama.errorMessage != null
+                    ? const Icon(Icons.error_outline, color: Colors.red)
+                    : const Icon(Icons.hourglass_top_outlined,
+                        color: Colors.orange),
           ),
 
           const Divider(),
@@ -33,41 +40,62 @@ class SettingsScreen extends StatelessWidget {
           _SectionHeader(title: loc.settingsGpu),
           RadioListTile<GpuMode>(
             title: Text(loc.settingsGpuAuto),
-            subtitle: const Text('Metal (iOS) / OpenCL (Android)'),
+            subtitle: Text(loc.settingsGpuSubtitleAuto),
             value: GpuMode.auto,
             groupValue: llama.gpuMode,
-            onChanged: (_) {}, // TODO: persist via LlamaService
+            onChanged: llama.isInferring
+                ? null
+                : (mode) => context.read<LlamaService>().setGpuMode(mode!),
           ),
           RadioListTile<GpuMode>(
             title: Text(loc.settingsGpuForce),
             value: GpuMode.gpu,
             groupValue: llama.gpuMode,
-            onChanged: (_) {},
+            onChanged: llama.isInferring
+                ? null
+                : (mode) => context.read<LlamaService>().setGpuMode(mode!),
           ),
           RadioListTile<GpuMode>(
             title: Text(loc.settingsGpuCpu),
-            subtitle: const Text('Langsamer, aber kompatibel'),
+            subtitle: Text(loc.settingsGpuSubtitleCpu),
             value: GpuMode.cpu,
             groupValue: llama.gpuMode,
-            onChanged: (_) {},
+            onChanged: llama.isInferring
+                ? null
+                : (mode) => context.read<LlamaService>().setGpuMode(mode!),
           ),
 
           const Divider(),
 
           // ── Language ────────────────────────────────────────────────────
           _SectionHeader(title: loc.settingsLanguage),
-          ListTile(
-            leading: const Icon(Icons.language),
-            title: const Text('Deutsch / English'),
-            subtitle: const Text('Folgt der Systemsprache'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {}, // TODO: language picker
+          RadioListTile<String>(
+            title: const Text('Deutsch'),
+            value: 'de',
+            groupValue: currentLang,
+            onChanged: (code) =>
+                context.read<LocaleService>().setLocale(code),
+          ),
+          RadioListTile<String>(
+            title: const Text('English'),
+            value: 'en',
+            groupValue: currentLang,
+            onChanged: (code) =>
+                context.read<LocaleService>().setLocale(code),
+          ),
+          RadioListTile<String>(
+            title: Text(loc.settingsLanguageSystem),
+            // Use a sentinel value that cannot match a real language code.
+            value: 'system',
+            groupValue: localeService.locale == null ? 'system' : currentLang,
+            onChanged: (_) =>
+                context.read<LocaleService>().setLocale(null),
           ),
 
           const Divider(),
 
           // ── Data & Reset ─────────────────────────────────────────────────
-          _SectionHeader(title: 'Daten & Reset'),
+          _SectionHeader(title: loc.settingsDataReset),
           ListTile(
             leading: const Icon(Icons.refresh),
             title: Text(loc.settingsReset),
@@ -75,18 +103,16 @@ class SettingsScreen extends StatelessWidget {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Setup zurücksetzen?'),
-                  content: const Text(
-                    'Dies löscht die Einrichtung. Das Modell bleibt erhalten.',
-                  ),
+                  title: Text(loc.settingsResetDialogTitle),
+                  content: Text(loc.settingsResetDialogBody),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Abbrechen'),
+                      child: Text(loc.buttonCancel),
                     ),
                     FilledButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Zurücksetzen'),
+                      child: Text(loc.buttonConfirm),
                     ),
                   ],
                 ),
@@ -100,11 +126,11 @@ class SettingsScreen extends StatelessWidget {
           const Divider(),
 
           // ── About ────────────────────────────────────────────────────────
-          _SectionHeader(title: 'Über InHausKI'),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('Version 1.0.0'),
-            subtitle: Text('inhauski.de · 100% offline · DSGVO-konform'),
+          _SectionHeader(title: loc.settingsAbout),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('Version 1.0.0'),
+            subtitle: Text(loc.settingsAboutSubtitle),
           ),
         ],
       ),

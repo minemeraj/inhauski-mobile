@@ -3,7 +3,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'services/llama_service.dart';
+import 'services/locale_service.dart';
 import 'services/rag_service.dart';
+import 'storage/app_database.dart';
 import 'storage/chat_history.dart';
 import 'screens/chat_screen.dart';
 import 'screens/documents_screen.dart';
@@ -24,22 +26,33 @@ class InHausKIApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LocaleService()),
         ChangeNotifierProvider(create: (_) => LlamaService()),
         ChangeNotifierProxyProvider<LlamaService, RagService>(
           create: (context) => RagService(context.read<LlamaService>()),
           update: (context, llamaService, ragService) =>
               ragService ?? RagService(llamaService),
         ),
-        ChangeNotifierProvider(create: (_) => ChatHistory()),
+        // AppDatabase is a plain object (not ChangeNotifier); expose via Provider.
+        Provider<AppDatabase>(
+          create: (_) => AppDatabase(),
+          dispose: (_, db) => db.close(),
+        ),
+        ChangeNotifierProxyProvider<AppDatabase, ChatHistory>(
+          create: (context) => ChatHistory(context.read<AppDatabase>()),
+          update: (context, db, history) => history ?? ChatHistory(db),
+        ),
       ],
-      child: Consumer<LlamaService>(
-        builder: (context, llama, _) {
+      child: Consumer2<LlamaService, LocaleService>(
+        builder: (context, llama, localeService, _) {
           return MaterialApp(
             title: 'InHausKI',
             debugShowCheckedModeBanner: false,
             theme: _buildTheme(),
             darkTheme: _buildDarkTheme(),
             themeMode: ThemeMode.system,
+            // null → follow system locale; non-null → user override
+            locale: localeService.locale,
             localizationsDelegates: const [
               AppLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,
@@ -47,7 +60,7 @@ class InHausKIApp extends StatelessWidget {
               GlobalCupertinoLocalizations.delegate,
             ],
             supportedLocales: const [
-              Locale('de'), // German — default
+              Locale('de'), // German
               Locale('en'), // English
             ],
             home: !llama.isSetupComplete

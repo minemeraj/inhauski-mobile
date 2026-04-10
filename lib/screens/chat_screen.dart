@@ -29,7 +29,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.clear();
 
     // Add user message
-    history.addMessage(ChatMessage(
+    await history.addMessage(ChatMessage(
       role: MessageRole.user,
       content: text,
       timestamp: DateTime.now(),
@@ -58,15 +58,15 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       await llama.chat(
         messages: messages,
-        onToken: (token) {
-          history.updateLastAssistantMessage(token);
+        onToken: (token) async {
+          await history.updateLastAssistantMessage(token);
           _scrollToBottom();
         },
       );
     } catch (e) {
       // Replace the empty placeholder with an error notice so the bubble
       // doesn't stay blank/spinning indefinitely.
-      history.updateLastAssistantMessage('[Error: $e]');
+      await history.updateLastAssistantMessage('[Error: $e]');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

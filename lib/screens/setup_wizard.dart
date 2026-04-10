@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../services/llama_service.dart';
+import '../services/locale_service.dart';
 import '../i18n/app_localizations.dart';
 
 /// Model download configuration
@@ -76,8 +77,13 @@ class _SetupWizardState extends State<SetupWizard> {
             ButtonSegment(value: 'en', label: Text('English')),
           ],
           selected: {_selectedLanguage},
-          onSelectionChanged: (s) =>
-              setState(() => _selectedLanguage = s.first),
+          onSelectionChanged: (s) {
+            final code = s.first;
+            setState(() => _selectedLanguage = code);
+            // Immediately apply locale so subsequent wizard steps render
+            // in the chosen language.
+            context.read<LocaleService>().setLocale(code);
+          },
         ),
       ],
     );

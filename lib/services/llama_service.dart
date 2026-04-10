@@ -85,6 +85,23 @@ class LlamaService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Change the GPU mode and immediately reload the model with the new setting.
+  ///
+  /// The new mode is persisted so it survives app restarts.
+  Future<void> setGpuMode(GpuMode mode) async {
+    if (mode == _gpuMode) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_gpuModeKey, mode.name);
+    _gpuMode = mode;
+    notifyListeners();
+    // Reload model with the new GPU layer count if a model is already loaded.
+    if (_modelPath != null) {
+      _isModelLoaded = false;
+      notifyListeners();
+      await loadModel(_modelPath!);
+    }
+  }
+
   /// Load a GGUF model file from [path].
   ///
   /// GPU layers: 99 (all) in auto/gpu mode, 0 in cpu mode.

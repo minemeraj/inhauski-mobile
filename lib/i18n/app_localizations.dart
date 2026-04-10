@@ -51,6 +51,10 @@ abstract class AppLocalizations {
   String get docsReady;
   String get docsChunks;
   String get docsIndexed;
+  String get docsFormats;
+  String get docsClearIndex;
+  String get docsClearIndexDone;
+  String get docsError;
 
   // Setup
   String get setupWelcome;
@@ -76,10 +80,20 @@ abstract class AppLocalizations {
   String get settingsModelNotLoaded;
   String get settingsGpu;
   String get settingsGpuAuto;
+  String get settingsGpuSubtitleAuto;
   String get settingsGpuForce;
   String get settingsGpuCpu;
+  String get settingsGpuSubtitleCpu;
   String get settingsLanguage;
+  String get settingsLanguageSystem;
+  String get settingsDataReset;
+  String get settingsResetDialogTitle;
+  String get settingsResetDialogBody;
   String get settingsReset;
+  String get settingsAbout;
+  String get settingsAboutSubtitle;
+  String get buttonCancel;
+  String get buttonConfirm;
 }
 
 class _AppLocalizationsDe extends AppLocalizations {
@@ -100,6 +114,10 @@ class _AppLocalizationsDe extends AppLocalizations {
   @override String get docsReady => 'Dokument bereit';
   @override String get docsChunks => 'Abschnitte';
   @override String get docsIndexed => 'im lokalen Index';
+  @override String get docsFormats => 'Unterstützte Formate: PDF, TXT, Markdown';
+  @override String get docsClearIndex => 'Index leeren';
+  @override String get docsClearIndexDone => 'Dokumentenindex geleert.';
+  @override String get docsError => 'Fehler';
   @override String get setupWelcome => 'Willkommen bei InHausKI';
   @override String get setupTagline => 'Ihre KI. Ihr Gerät. Kein Internet.';
   @override String get setupLanguageLabel => 'Sprache / Language';
@@ -119,10 +137,20 @@ class _AppLocalizationsDe extends AppLocalizations {
   @override String get settingsModelNotLoaded => 'Nicht geladen';
   @override String get settingsGpu => 'GPU-Beschleunigung';
   @override String get settingsGpuAuto => 'Automatisch';
+  @override String get settingsGpuSubtitleAuto => 'Metal (iOS) / OpenCL (Android)';
   @override String get settingsGpuForce => 'Immer GPU';
   @override String get settingsGpuCpu => 'Nur CPU';
+  @override String get settingsGpuSubtitleCpu => 'Langsamer, aber kompatibel';
   @override String get settingsLanguage => 'Sprache';
+  @override String get settingsLanguageSystem => 'Systemsprache verwenden';
+  @override String get settingsDataReset => 'Daten & Reset';
+  @override String get settingsResetDialogTitle => 'Setup zurücksetzen?';
+  @override String get settingsResetDialogBody => 'Dies löscht die Einrichtung. Das Modell bleibt erhalten.';
   @override String get settingsReset => 'Setup zurücksetzen';
+  @override String get settingsAbout => 'Über InHausKI';
+  @override String get settingsAboutSubtitle => '100% offline · DSGVO-konform';
+  @override String get buttonCancel => 'Abbrechen';
+  @override String get buttonConfirm => 'Zurücksetzen';
 }
 
 class _AppLocalizationsEn extends AppLocalizations {
@@ -143,6 +171,10 @@ class _AppLocalizationsEn extends AppLocalizations {
   @override String get docsReady => 'Document ready';
   @override String get docsChunks => 'chunks';
   @override String get docsIndexed => 'in local index';
+  @override String get docsFormats => 'Supported formats: PDF, TXT, Markdown';
+  @override String get docsClearIndex => 'Clear index';
+  @override String get docsClearIndexDone => 'Document index cleared.';
+  @override String get docsError => 'Error';
   @override String get setupWelcome => 'Welcome to InHausKI';
   @override String get setupTagline => 'Your AI. Your device. No internet.';
   @override String get setupLanguageLabel => 'Language';
@@ -162,10 +194,20 @@ class _AppLocalizationsEn extends AppLocalizations {
   @override String get settingsModelNotLoaded => 'Not loaded';
   @override String get settingsGpu => 'GPU Acceleration';
   @override String get settingsGpuAuto => 'Automatic';
+  @override String get settingsGpuSubtitleAuto => 'Metal (iOS) / OpenCL (Android)';
   @override String get settingsGpuForce => 'Always GPU';
   @override String get settingsGpuCpu => 'CPU only';
+  @override String get settingsGpuSubtitleCpu => 'Slower, but compatible';
   @override String get settingsLanguage => 'Language';
+  @override String get settingsLanguageSystem => 'Follow system language';
+  @override String get settingsDataReset => 'Data & Reset';
+  @override String get settingsResetDialogTitle => 'Reset setup?';
+  @override String get settingsResetDialogBody => 'This clears the setup. The model file is kept.';
   @override String get settingsReset => 'Reset setup';
+  @override String get settingsAbout => 'About InHausKI';
+  @override String get settingsAboutSubtitle => '100% offline · GDPR compliant';
+  @override String get buttonCancel => 'Cancel';
+  @override String get buttonConfirm => 'Reset';
 }
 
 class _AppLocalizationsDelegate

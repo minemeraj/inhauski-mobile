@@ -19,6 +19,10 @@
   "docsReady": "Document ready",
   "docsChunks": "chunks",
   "docsIndexed": "in local index",
+  "docsFormats": "Supported formats: PDF, TXT, Markdown",
+  "docsClearIndex": "Clear index",
+  "docsClearIndexDone": "Document index cleared.",
+  "docsError": "Error",
 
   "setupWelcome": "Welcome to InHausKI",
   "setupTagline": "Your AI. Your device. No internet.",
@@ -39,10 +43,19 @@
   "settingsModelNotLoaded": "Not loaded",
   "settingsGpu": "GPU Acceleration",
   "settingsGpuAuto": "Automatic",
+  "settingsGpuSubtitleAuto": "Metal (iOS) / OpenCL (Android)",
   "settingsGpuForce": "Always GPU",
   "settingsGpuCpu": "CPU only",
+  "settingsGpuSubtitleCpu": "Slower, but compatible",
   "settingsLanguage": "Language",
+  "settingsLanguageSystem": "Follow system language",
+  "settingsDataReset": "Data & Reset",
+  "settingsResetDialogTitle": "Reset setup?",
+  "settingsResetDialogBody": "This clears the setup. The model file is kept.",
   "settingsReset": "Reset setup",
-  
+  "settingsAbout": "About InHausKI",
+  "settingsAboutSubtitle": "100% offline · GDPR compliant",
+  "buttonCancel": "Cancel",
+  "buttonConfirm": "Reset",
   "buttonRetry": "Retry"
 }

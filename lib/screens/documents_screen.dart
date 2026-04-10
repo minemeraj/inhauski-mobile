@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:pdfx/pdfx.dart';
 import 'package:provider/provider.dart';
 
 import '../services/rag_service.dart';
@@ -37,10 +38,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     });
 
     try {
-      // Read file content
-      // TODO: For PDF, use pdfx or pdfium_render to extract text.
-      // For now, handle plain text only.
-      final content = await _readFileAsText(file.path!);
+      final content = await _readFileAsText(file.path!, file.name);
 
       await rag.ingestText(
         text: content,
@@ -50,13 +48,14 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${file.name}: ${rag.totalChunks} ${loc.docsChunks}'),
+          content:
+              Text('${file.name}: ${rag.totalChunks} ${loc.docsChunks}'),
         ));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Fehler: $e'),
+          content: Text('${loc.docsError}: $e'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ));
       }
@@ -68,10 +67,32 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     }
   }
 
-  Future<String> _readFileAsText(String path) async {
-    // PDF support requires a separate package (e.g. pdfx) — Week 3.
-    // For now, read plain text / markdown files directly.
+  /// Extract text from the file at [path].
+  ///
+  /// PDF → iterate all pages via pdfx and concatenate the text layer.
+  /// TXT / MD → read as UTF-8 string.
+  Future<String> _readFileAsText(String path, String name) async {
+    final ext = name.toLowerCase().split('.').last;
+    if (ext == 'pdf') {
+      return _extractPdfText(path);
+    }
     return File(path).readAsString();
+  }
+
+  Future<String> _extractPdfText(String path) async {
+    final doc = await PdfDocument.openFile(path);
+    final buf = StringBuffer();
+    for (int i = 1; i <= doc.pagesCount; i++) {
+      final page = await doc.getPage(i);
+      final text = await page.getTextRanges();
+      for (final range in text) {
+        buf.write(range.text);
+        buf.write(' ');
+      }
+      await page.close();
+    }
+    await doc.close();
+    return buf.toString();
   }
 
   @override
@@ -86,11 +107,11 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           if (rag.totalChunks > 0)
             IconButton(
               icon: const Icon(Icons.delete_sweep_outlined),
-              tooltip: 'Index leeren',
+              tooltip: loc.docsClearIndex,
               onPressed: () {
                 rag.clearIndex();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Dokumentenindex geleert.')),
+                  SnackBar(content: Text(loc.docsClearIndexDone)),
                 );
               },
             ),
@@ -151,7 +172,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
 
             // Supported formats note
             Text(
-              'Unterstützte Formate: PDF, TXT, Markdown',
+              loc.docsFormats,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
                   ),
