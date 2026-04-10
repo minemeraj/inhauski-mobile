@@ -68,6 +68,9 @@ abstract class AppLocalizations {
   String get setupStartButton;
   String get setupContinue;
   String get setupFinish;
+  String get setupEmbedTitle;
+  String get setupEmbedHint;
+  String get setupEmbedSkip;
 
   // App / Loading
   String get appSubtitle;
@@ -129,6 +132,9 @@ class _AppLocalizationsDe extends AppLocalizations {
   @override String get setupStartButton => 'Los geht\'s';
   @override String get setupContinue => 'Weiter';
   @override String get setupFinish => 'Fertig';
+  @override String get setupEmbedTitle => 'Einbettungsmodell laden';
+  @override String get setupEmbedHint => 'Das Einbettungsmodell (~90 MB) ermöglicht die Dokumentensuche. Kann übersprungen werden — RAG-Funktion wird dann deaktiviert.';
+  @override String get setupEmbedSkip => 'Überspringen';
   @override String get appSubtitle => 'Offline KI-Assistent';
   @override String get loadingModelMessage => 'Lade Gemma 4 2B...';
   @override String get loadingModelSubtitle => 'Dies kann beim ersten Start einige Minuten dauern.';
@@ -186,6 +192,9 @@ class _AppLocalizationsEn extends AppLocalizations {
   @override String get setupStartButton => 'Let\'s go';
   @override String get setupContinue => 'Continue';
   @override String get setupFinish => 'Finish';
+  @override String get setupEmbedTitle => 'Load embedding model';
+  @override String get setupEmbedHint => 'The embedding model (~90 MB) enables document search. You can skip this — RAG will be disabled until it is downloaded.';
+  @override String get setupEmbedSkip => 'Skip for now';
   @override String get appSubtitle => 'Offline AI Assistant';
   @override String get loadingModelMessage => 'Loading Gemma 4 2B...';
   @override String get loadingModelSubtitle => 'This may take a few minutes on first run.';

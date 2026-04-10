@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'llama_service.dart';
+import 'package:objectbox/objectbox.dart';
 
-/// A retrieved chunk from the vector store
+import 'embedding_service.dart';
+import '../storage/objectbox_store.dart';
+
+/// A retrieved chunk returned to the caller.
 class RetrievedChunk {
   final String text;
   final String sourceFile;
@@ -15,28 +18,24 @@ class RetrievedChunk {
 }
 
 /// RagService orchestrates:
-///   1. Document ingestion (chunking → embedding → store)
-///   2. Query retrieval (embed query → cosine search → rerank)
-///   3. Context assembly for the LLM prompt
+///   1. Document ingestion  → chunk → embed (EmbeddingService) → ObjectBox
+///   2. Query retrieval     → embed query → HNSW search → rerank
+///   3. Context assembly    → locale-aware system prompt
 class RagService extends ChangeNotifier {
-  final LlamaService _llama;
-
-  // In-memory vector store: list of (vector, chunk text, source file)
-  // Replace with ObjectBox HNSW index for production performance.
-  final List<_IndexedChunk> _index = [];
+  final EmbeddingService _embedder;
+  final Box<VectorChunk> _box;
 
   bool _isIngesting = false;
-  int _totalChunks = 0;
 
   bool get isIngesting => _isIngesting;
-  int get totalChunks => _totalChunks;
+  int get totalChunks => _box.count();
 
-  /// Constructor: Pass the LlamaService instance from Provider
-  RagService(this._llama);
+  RagService(this._embedder, this._box);
 
   // ── Ingestion ──────────────────────────────────────────────────────────────
 
-  /// Ingest a plain-text document.  Call [onProgress] with 0.0–1.0.
+  /// Ingest plain text from [sourceFile].
+  /// Chunks are persisted in ObjectBox so they survive restarts.
   Future<void> ingestText({
     required String text,
     required String sourceFile,
@@ -47,16 +46,18 @@ class RagService extends ChangeNotifier {
 
     try {
       final chunks = _chunk(text);
+      final now = DateTime.now();
+
       for (int i = 0; i < chunks.length; i++) {
-        final vector = await _llama.embed(chunks[i]);
-        _index.add(_IndexedChunk(
-          vector: vector,
-          text: chunks[i],
+        final embedding = await _embedder.embed(chunks[i]);
+        _box.put(VectorChunk(
           sourceFile: sourceFile,
+          text: chunks[i],
+          embedding: embedding,
+          ingestedAt: now,
         ));
         onProgress?.call((i + 1) / chunks.length);
       }
-      _totalChunks = _index.length;
     } finally {
       _isIngesting = false;
       notifyListeners();
@@ -65,102 +66,104 @@ class RagService extends ChangeNotifier {
 
   // ── Retrieval ──────────────────────────────────────────────────────────────
 
-  /// Retrieve the top-k most relevant chunks for [query].
+  /// Return the top-[k] most relevant chunks for [query].
+  ///
+  /// Uses ObjectBox HNSW nearest-neighbour search when the store has an
+  /// index; falls back to linear cosine scan for the hand-written stub.
   Future<List<RetrievedChunk>> retrieve({
     required String query,
     int k = 5,
     double minScore = 0.2,
   }) async {
-    if (_index.isEmpty) return [];
+    if (_box.isEmpty()) return [];
 
-    final queryVector = await _llama.embed(query);
+    final queryVector = await _embedder.embed(query);
 
-    // Cosine similarity search
-    final scored = _index.map((chunk) {
-      final score = _cosineSimilarity(queryVector, chunk.vector);
-      return (chunk, score);
-    }).toList();
+    // HNSW nearest-neighbour query via ObjectBox
+    final nnQuery = _box
+        .query(VectorChunk_.embedding.nearestNeighborsF32(queryVector, k * 2))
+        .build();
+    final candidates = nnQuery.findWithScores();
+    nnQuery.close();
 
-    scored.sort((a, b) => b.$2.compareTo(a.$2));
-
-    return scored
-        .where((s) => s.$2 >= minScore)
-        .take(k)
-        .map((s) => RetrievedChunk(
-              text: s.$1.text,
-              sourceFile: s.$1.sourceFile,
-              score: s.$2,
+    // ObjectBox HNSW score is L2 distance — convert to a cosine-like
+    // similarity in [0, 1] so the minScore threshold is meaningful.
+    // score = 1 / (1 + distance)
+    final results = candidates
+        .map((ws) => RetrievedChunk(
+              text: ws.object.text,
+              sourceFile: ws.object.sourceFile,
+              score: 1.0 / (1.0 + ws.score),
             ))
+        .where((r) => r.score >= minScore)
+        .take(k)
         .toList();
+
+    // Sort descending by score (highest relevance first)
+    results.sort((a, b) => b.score.compareTo(a.score));
+    return results;
   }
 
-  /// Build a system prompt + context string from retrieved chunks.
-  ///
-  /// [lang] should be the current locale language code ('de' or 'en').
+  // ── Context assembly ───────────────────────────────────────────────────────
+
+  /// Build a locale-aware system prompt from retrieved chunks.
   String buildContext(List<RetrievedChunk> chunks, {String lang = 'de'}) {
     if (chunks.isEmpty) return '';
-    final buffer = StringBuffer();
+    final buf = StringBuffer();
     if (lang == 'de') {
-      buffer.writeln('Nutze die folgenden Informationen, um die Frage zu beantworten:');
+      buf.writeln(
+          'Nutze die folgenden Informationen, um die Frage zu beantworten:');
     } else {
-      buffer.writeln('Use the following information to answer the question:');
+      buf.writeln('Use the following information to answer the question:');
     }
-    buffer.writeln();
+    buf.writeln();
     for (int i = 0; i < chunks.length; i++) {
-      buffer.writeln('[${i + 1}] Source: ${chunks[i].sourceFile}');
-      buffer.writeln(chunks[i].text);
-      buffer.writeln();
+      buf.writeln('[${i + 1}] Source: ${chunks[i].sourceFile}');
+      buf.writeln(chunks[i].text);
+      buf.writeln();
     }
     if (lang == 'de') {
-      buffer.writeln('Beantworte die Frage basierend auf den obigen Informationen.');
+      buf.writeln(
+          'Beantworte die Frage basierend auf den obigen Informationen.');
     } else {
-      buffer.writeln('Answer the question based on the information above.');
+      buf.writeln('Answer the question based on the information above.');
     }
-    return buffer.toString();
+    return buf.toString();
+  }
+
+  // ── Index management ───────────────────────────────────────────────────────
+
+  /// Remove all indexed chunks (e.g. when user taps "Clear index").
+  void clearIndex() {
+    _box.removeAll();
+    notifyListeners();
+  }
+
+  /// Remove all chunks belonging to a specific source file.
+  void removeSource(String sourceFile) {
+    final query = _box
+        .query(VectorChunk_.sourceFile.equals(sourceFile))
+        .build();
+    final ids = query.findIds();
+    query.close();
+    _box.removeMany(ids);
+    notifyListeners();
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  /// Fixed-size chunking: 512 "words" per chunk, 50-word overlap.
+  /// Fixed-size word chunking: [size] words per chunk, [overlap] word overlap.
   List<String> _chunk(String text, {int size = 512, int overlap = 50}) {
     final words = text.split(RegExp(r'\s+'));
+    if (words.isEmpty) return [];
     final chunks = <String>[];
     int start = 0;
     while (start < words.length) {
       final end = min(start + size, words.length);
       chunks.add(words.sublist(start, end).join(' '));
+      if (end == words.length) break;
       start += size - overlap;
-      if (start >= words.length) break;
     }
     return chunks;
   }
-
-  double _cosineSimilarity(List<double> a, List<double> b) {
-    assert(a.length == b.length);
-    double dot = 0, normA = 0, normB = 0;
-    for (int i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-    if (normA == 0 || normB == 0) return 0.0;
-    return dot / (sqrt(normA) * sqrt(normB));
-  }
-
-  void clearIndex() {
-    _index.clear();
-    _totalChunks = 0;
-    notifyListeners();
-  }
-}
-
-class _IndexedChunk {
-  final List<double> vector;
-  final String text;
-  final String sourceFile;
-  const _IndexedChunk({
-    required this.vector,
-    required this.text,
-    required this.sourceFile,
-  });
 }

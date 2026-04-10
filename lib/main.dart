@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:objectbox/objectbox.dart';
 import 'package:provider/provider.dart';
 
+import 'services/embedding_service.dart';
 import 'services/llama_service.dart';
 import 'services/locale_service.dart';
 import 'services/rag_service.dart';
 import 'storage/app_database.dart';
 import 'storage/chat_history.dart';
+import 'storage/objectbox_store.dart';
 import 'screens/chat_screen.dart';
 import 'screens/documents_screen.dart';
 import 'screens/settings_screen.dart';
@@ -16,31 +19,58 @@ import 'i18n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const InHausKIApp());
+
+  // Open ObjectBox store once at startup; it lives for the entire app session.
+  final obStore = await ObjectBoxStore.open();
+
+  runApp(InHausKIApp(objectBoxStore: obStore));
 }
 
 class InHausKIApp extends StatelessWidget {
-  const InHausKIApp({super.key});
+  final ObjectBoxStore objectBoxStore;
+
+  const InHausKIApp({super.key, required this.objectBoxStore});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // ── Locale / i18n ──────────────────────────────────────────────────
         ChangeNotifierProvider(create: (_) => LocaleService()),
+
+        // ── LLM inference (chat) ───────────────────────────────────────────
         ChangeNotifierProvider(create: (_) => LlamaService()),
-        ChangeNotifierProxyProvider<LlamaService, RagService>(
-          create: (context) => RagService(context.read<LlamaService>()),
-          update: (context, llamaService, ragService) =>
-              ragService ?? RagService(llamaService),
+
+        // ── Embedding model (separate llama.cpp instance, embeddingMode=true)
+        ChangeNotifierProvider(create: (_) => EmbeddingService()),
+
+        // ── ObjectBox store (plain; not a ChangeNotifier) ──────────────────
+        Provider<ObjectBoxStore>.value(value: objectBoxStore),
+
+        // ── VectorChunk box (derived from store) ───────────────────────────
+        ProxyProvider<ObjectBoxStore, Box<VectorChunk>>(
+          update: (_, store, __) => store.vectorChunkBox,
         ),
-        // AppDatabase is a plain object (not ChangeNotifier); expose via Provider.
+
+        // ── RAG pipeline (depends on EmbeddingService + Box<VectorChunk>) ──
+        ChangeNotifierProxyProvider2<EmbeddingService, Box<VectorChunk>,
+            RagService>(
+          create: (ctx) => RagService(
+            ctx.read<EmbeddingService>(),
+            ctx.read<Box<VectorChunk>>(),
+          ),
+          update: (ctx, embedSvc, box, prev) =>
+              prev ?? RagService(embedSvc, box),
+        ),
+
+        // ── Drift SQLite (chat history) ────────────────────────────────────
         Provider<AppDatabase>(
           create: (_) => AppDatabase(),
           dispose: (_, db) => db.close(),
         ),
         ChangeNotifierProxyProvider<AppDatabase, ChatHistory>(
-          create: (context) => ChatHistory(context.read<AppDatabase>()),
-          update: (context, db, history) => history ?? ChatHistory(db),
+          create: (ctx) => ChatHistory(ctx.read<AppDatabase>()),
+          update: (_, db, history) => history ?? ChatHistory(db),
         ),
       ],
       child: Consumer2<LlamaService, LocaleService>(
@@ -60,7 +90,7 @@ class InHausKIApp extends StatelessWidget {
               GlobalCupertinoLocalizations.delegate,
             ],
             supportedLocales: const [
-              Locale('de'), // German
+              Locale('de'), // German (primary)
               Locale('en'), // English
             ],
             home: !llama.isSetupComplete

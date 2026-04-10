@@ -35,6 +35,9 @@
   "setupStartButton": "Let's go",
   "setupContinue": "Continue",
   "setupFinish": "Finish",
+  "setupEmbedTitle": "Load embedding model",
+  "setupEmbedHint": "The embedding model (~90 MB) enables document search. You can skip this — RAG will be disabled until it is downloaded.",
+  "setupEmbedSkip": "Skip for now",
 
   "loadingModelMessage": "Loading Gemma 4 2B...",
   "loadingModelSubtitle": "This may take a few minutes on first run.",

@@ -13,8 +13,10 @@ typedef TokenCallback = void Function(String token);
 /// LlamaService manages the llama_cpp_dart lifecycle:
 ///   - model loading (with GPU layer offload)
 ///   - streaming chat completion
-///   - embedding generation (for RAG)
 ///   - setup state (first-run detection)
+///
+/// Embedding generation uses a separate [EmbeddingService] instance
+/// that loads the embedding GGUF with embeddingMode:true.
 class LlamaService extends ChangeNotifier {
   static const _setupKey = 'inhauski_setup_complete';
   static const _modelPathKey = 'inhauski_model_path';
@@ -175,24 +177,6 @@ class LlamaService extends ChangeNotifier {
     } finally {
       _isInferring = false;
       notifyListeners();
-    }
-  }
-
-  /// Generate an embedding vector for [text].
-  /// Returns a float32 list of dimension 384 (for multilingual-e5-small).
-  Future<List<double>> embed(String text) async {
-    if (!_isModelLoaded) throw StateError('Model not loaded');
-
-    try {
-      // Use llama_cpp_dart's embedding capability
-      // The embedding model (multilingual-e5-small) produces 384-dim vectors
-      final embedding = await _llamaCpp.embed(text);
-      return embedding;
-    } catch (e) {
-      _errorMessage = 'Embedding error: $e';
-      debugPrint('[LlamaService] Embedding error: $_errorMessage');
-      notifyListeners();
-      rethrow;
     }
   }
 
