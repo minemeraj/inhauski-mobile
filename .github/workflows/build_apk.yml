@@ -44,17 +44,28 @@ jobs:
             --project-name inhauski \
             --org com.inhauski \
             --platforms android \
-            --no-overwrite
+            --no-overwrite \
+            --no-pub
         working-directory: ${{ github.workspace }}
 
       # ── 5. Set minSdkVersion = 21 ─────────────────────────────────────────
       # objectbox_flutter_libs and llama_cpp_dart both require minSdk 21.
       # flutter create defaults to 21 since Flutter 3.19, but we enforce it
       # explicitly to be safe.
-      - name: Ensure minSdkVersion 21 in build.gradle
+      # Also remove the stub widget_test.dart flutter create generates —
+      # we have our own tests in test/.
+      - name: Post-create fixups
         run: |
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/' \
-            android/app/build.gradle
+          # Flutter 3.22+ generates Kotlin DSL (build.gradle.kts).
+          # The minSdk line looks like: minSdk = flutter.minSdkVersion
+          # Replace it with a hard 21 so objectbox + llama_cpp_dart work.
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/' \
+            android/app/build.gradle.kts || true
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' \
+            android/app/build.gradle || true
+          # Remove stub widget_test.dart that flutter create generates —
+          # we have our own unit tests in test/.
+          rm -f test/widget_test.dart
         working-directory: ${{ github.workspace }}
 
       # ── 6. Install pub dependencies ───────────────────────────────────────
