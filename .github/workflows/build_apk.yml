@@ -1,0 +1,97 @@
+name: Build Android APK
+
+# Trigger on every push to master and on pull requests.
+# You can also trigger manually from the GitHub Actions tab.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:   # manual trigger button in GitHub UI
+
+jobs:
+  build-apk:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout source ────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Java (required by Android SDK tooling) ─────────────────
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # ── 3. Set up Flutter ─────────────────────────────────────────────────
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          channel: stable
+          cache: true   # cache Flutter SDK between runs (~1 GB)
+
+      # ── 4. Generate android/ platform folder ─────────────────────────────
+      # The repo contains only lib/, test/, pubspec.yaml.
+      # flutter create . generates android/ (and ios/) without touching
+      # existing Dart source files.
+      - name: Generate platform folders (flutter create)
+        run: |
+          flutter create . \
+            --project-name inhauski \
+            --org com.inhauski \
+            --platforms android \
+            --no-overwrite
+        working-directory: ${{ github.workspace }}
+
+      # ── 5. Set minSdkVersion = 21 ─────────────────────────────────────────
+      # objectbox_flutter_libs and llama_cpp_dart both require minSdk 21.
+      # flutter create defaults to 21 since Flutter 3.19, but we enforce it
+      # explicitly to be safe.
+      - name: Ensure minSdkVersion 21 in build.gradle
+        run: |
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/' \
+            android/app/build.gradle
+        working-directory: ${{ github.workspace }}
+
+      # ── 6. Install pub dependencies ───────────────────────────────────────
+      - name: flutter pub get
+        run: flutter pub get
+        working-directory: ${{ github.workspace }}
+
+      # ── 7. Regenerate ObjectBox + drift code ──────────────────────────────
+      # The committed stubs in lib/storage/*.g.dart are enough to compile,
+      # but we run build_runner anyway so the real generated code is used.
+      # --delete-conflicting-outputs removes the stubs before regenerating.
+      - name: Generate code (build_runner)
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+        working-directory: ${{ github.workspace }}
+
+      # ── 8. Run unit tests ─────────────────────────────────────────────────
+      # Tests in test/ are pure-Dart (no native llama.cpp call).
+      # They run on the Linux runner without a device.
+      - name: flutter test
+        run: flutter test --reporter compact
+        working-directory: ${{ github.workspace }}
+
+      # ── 9. Build debug APK ────────────────────────────────────────────────
+      # Debug build: no signing required, installs directly via adb.
+      # Release build requires a keystore secret — add later for Play Store.
+      - name: Build debug APK
+        run: flutter build apk --debug --verbose
+        working-directory: ${{ github.workspace }}
+
+      # ── 10. Upload APK as build artifact ─────────────────────────────────
+      # After the workflow completes, go to the Actions tab on GitHub,
+      # click the run, scroll to "Artifacts", download app-debug.zip,
+      # extract → app-debug.apk → install on your Android device.
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14   # keep artifact for 14 days
