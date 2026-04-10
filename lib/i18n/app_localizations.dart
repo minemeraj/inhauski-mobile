@@ -54,9 +54,22 @@ abstract class AppLocalizations {
 
   // Setup
   String get setupWelcome;
+  String get setupTagline;
+  String get setupLanguageLabel;
+  String get setupModelChoose;
+  String get setupModelHint;
+  String get setupGpuLabel;
   String get setupDownloading;
+  String get setupDownloadButton;
+  String get setupStartButton;
   String get setupContinue;
   String get setupFinish;
+
+  // App / Loading
+  String get appSubtitle;
+  String get loadingModelMessage;
+  String get loadingModelSubtitle;
+  String get buttonRetry;
 
   // Settings
   String get settingsModel;
@@ -88,9 +101,20 @@ class _AppLocalizationsDe extends AppLocalizations {
   @override String get docsChunks => 'Abschnitte';
   @override String get docsIndexed => 'im lokalen Index';
   @override String get setupWelcome => 'Willkommen bei InHausKI';
+  @override String get setupTagline => 'Ihre KI. Ihr Gerät. Kein Internet.';
+  @override String get setupLanguageLabel => 'Sprache / Language';
+  @override String get setupModelChoose => 'KI-Modell wählen';
+  @override String get setupModelHint => 'Das Modell wird einmalig heruntergeladen (~1.5 GB). Danach läuft alles offline.';
+  @override String get setupGpuLabel => 'GPU-Beschleunigung';
   @override String get setupDownloading => 'KI-Modell laden';
+  @override String get setupDownloadButton => 'Herunterladen';
+  @override String get setupStartButton => 'Los geht\'s';
   @override String get setupContinue => 'Weiter';
   @override String get setupFinish => 'Fertig';
+  @override String get appSubtitle => 'Offline KI-Assistent';
+  @override String get loadingModelMessage => 'Lade Gemma 4 2B...';
+  @override String get loadingModelSubtitle => 'Dies kann beim ersten Start einige Minuten dauern.';
+  @override String get buttonRetry => 'Erneut versuchen';
   @override String get settingsModel => 'KI-Modell';
   @override String get settingsModelNotLoaded => 'Nicht geladen';
   @override String get settingsGpu => 'GPU-Beschleunigung';
@@ -120,9 +144,20 @@ class _AppLocalizationsEn extends AppLocalizations {
   @override String get docsChunks => 'chunks';
   @override String get docsIndexed => 'in local index';
   @override String get setupWelcome => 'Welcome to InHausKI';
+  @override String get setupTagline => 'Your AI. Your device. No internet.';
+  @override String get setupLanguageLabel => 'Language';
+  @override String get setupModelChoose => 'Choose AI model';
+  @override String get setupModelHint => 'The model is downloaded once (~1.5 GB) and then runs fully offline.';
+  @override String get setupGpuLabel => 'GPU Acceleration';
   @override String get setupDownloading => 'Loading AI model';
+  @override String get setupDownloadButton => 'Download';
+  @override String get setupStartButton => 'Let\'s go';
   @override String get setupContinue => 'Continue';
   @override String get setupFinish => 'Finish';
+  @override String get appSubtitle => 'Offline AI Assistant';
+  @override String get loadingModelMessage => 'Loading Gemma 4 2B...';
+  @override String get loadingModelSubtitle => 'This may take a few minutes on first run.';
+  @override String get buttonRetry => 'Retry';
   @override String get settingsModel => 'AI Model';
   @override String get settingsModelNotLoaded => 'Not loaded';
   @override String get settingsGpu => 'GPU Acceleration';

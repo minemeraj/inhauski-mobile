@@ -63,12 +63,12 @@ class _SetupWizardState extends State<SetupWizard> {
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Text(
-          'Ihre KI. Ihr Gerät. Kein Internet.',
+          loc.setupTagline,
           style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 32),
-        Text('Sprache / Language',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        Text(loc.setupLanguageLabel,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         SegmentedButton<String>(
           segments: const [
@@ -89,12 +89,11 @@ class _SetupWizardState extends State<SetupWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('KI-Modell wählen',
+        Text(loc.setupModelChoose,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text(
-          'Das Modell wird einmalig heruntergeladen (~1.5 GB). '
-          'Danach läuft alles offline.',
+          loc.setupModelHint,
           style: TextStyle(color: Colors.grey.shade600),
         ),
         const SizedBox(height: 20),
@@ -109,7 +108,7 @@ class _SetupWizardState extends State<SetupWizard> {
           ),
         ],
         const SizedBox(height: 20),
-        Text('GPU-Beschleunigung',
+        Text(loc.setupGpuLabel,
             style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         SegmentedButton<GpuMode>(
@@ -147,7 +146,7 @@ class _SetupWizardState extends State<SetupWizard> {
             width: double.infinity,
             child: FilledButton.icon(
               icon: const Icon(Icons.download),
-              label: const Text('Herunterladen'),
+              label: Text(loc.setupDownloadButton),
               onPressed: _startDownload,
             ),
           ),
@@ -159,7 +158,7 @@ class _SetupWizardState extends State<SetupWizard> {
     setState(() {
       _isDownloading = true;
       _downloadProgress = 0;
-      _downloadStatus = 'Verbinde...';
+      _downloadStatus = '…';
     });
 
     try {
@@ -205,7 +204,7 @@ class _SetupWizardState extends State<SetupWizard> {
     } catch (e) {
       setState(() {
         _isDownloading = false;
-        _downloadStatus = 'Fehler: $e';
+        _downloadStatus = 'Error: $e';
       });
     }
   }
@@ -258,7 +257,7 @@ class _SetupWizardState extends State<SetupWizard> {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () => setState(() => _step++),
-                    child: Text(_step == 0 ? 'Los geht\'s' : loc.setupContinue),
+                    child: Text(_step == 0 ? loc.setupStartButton : loc.setupContinue),
                   ),
                 ),
             ],

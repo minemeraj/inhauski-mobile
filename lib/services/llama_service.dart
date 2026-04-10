@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:llama_cpp_dart/llama_cpp_dart.dart';
@@ -30,7 +29,6 @@ class LlamaService extends ChangeNotifier {
   String? _errorMessage;
 
   late LlamaCppDart _llamaCpp;
-  late SendPort? _llamaSendPort;
 
   bool get isSetupComplete => _isSetupComplete;
   bool get isModelLoaded => _isModelLoaded;

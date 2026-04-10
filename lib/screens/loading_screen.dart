@@ -50,14 +50,21 @@ class LoadingScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 64),
 
-                // Loading spinner
-                const SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 4,
+                // Loading spinner — hidden when an error has occurred
+                if (llama.errorMessage == null)
+                  const SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 4,
+                    ),
+                  )
+                else
+                  Icon(
+                    Icons.error_outline,
+                    size: 60,
+                    color: Theme.of(context).colorScheme.error,
                   ),
-                ),
                 const SizedBox(height: 32),
 
                 // Status message

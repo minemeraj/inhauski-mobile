@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -39,28 +38,44 @@ class _ChatScreenState extends State<ChatScreen> {
     // RAG context retrieval (if documents are indexed)
     String systemContext = '';
     if (rag.totalChunks > 0) {
+      final lang = Localizations.localeOf(context).languageCode;
       final chunks = await rag.retrieve(query: text);
-      systemContext = rag.buildContext(chunks);
+      systemContext = rag.buildContext(chunks, lang: lang);
     }
 
-    // Build messages for inference
+    // Snapshot messages BEFORE adding the assistant placeholder,
+    // so the model does not see an empty assistant turn at the end.
     final messages = <Map<String, String>>[];
     if (systemContext.isNotEmpty) {
       messages.add({'role': 'system', 'content': systemContext});
     }
     messages.addAll(history.toApiMessages());
 
-    // Add assistant placeholder and start streaming
+    // Add assistant placeholder — visible immediately in the UI
     history.addAssistantPlaceholder();
     _scrollToBottom();
 
-    await llama.chat(
-      messages: messages,
-      onToken: (token) {
-        history.updateLastAssistantMessage(token);
-        _scrollToBottom();
-      },
-    );
+    try {
+      await llama.chat(
+        messages: messages,
+        onToken: (token) {
+          history.updateLastAssistantMessage(token);
+          _scrollToBottom();
+        },
+      );
+    } catch (e) {
+      // Replace the empty placeholder with an error notice so the bubble
+      // doesn't stay blank/spinning indefinitely.
+      history.updateLastAssistantMessage('[Error: $e]');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   void _scrollToBottom() {

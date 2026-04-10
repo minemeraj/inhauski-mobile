@@ -21,7 +21,14 @@
   "docsIndexed": "im lokalen Index",
 
   "setupWelcome": "Willkommen bei InHausKI",
+  "setupTagline": "Ihre KI. Ihr Gerät. Kein Internet.",
+  "setupLanguageLabel": "Sprache / Language",
+  "setupModelChoose": "KI-Modell wählen",
+  "setupModelHint": "Das Modell wird einmalig heruntergeladen (~1.5 GB). Danach läuft alles offline.",
+  "setupGpuLabel": "GPU-Beschleunigung",
   "setupDownloading": "KI-Modell laden",
+  "setupDownloadButton": "Herunterladen",
+  "setupStartButton": "Los geht's",
   "setupContinue": "Weiter",
   "setupFinish": "Fertig",
 

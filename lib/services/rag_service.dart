@@ -95,17 +95,27 @@ class RagService extends ChangeNotifier {
   }
 
   /// Build a system prompt + context string from retrieved chunks.
-  String buildContext(List<RetrievedChunk> chunks) {
+  ///
+  /// [lang] should be the current locale language code ('de' or 'en').
+  String buildContext(List<RetrievedChunk> chunks, {String lang = 'de'}) {
     if (chunks.isEmpty) return '';
     final buffer = StringBuffer();
-    buffer.writeln('Nutze die folgenden Informationen, um die Frage zu beantworten:');
+    if (lang == 'de') {
+      buffer.writeln('Nutze die folgenden Informationen, um die Frage zu beantworten:');
+    } else {
+      buffer.writeln('Use the following information to answer the question:');
+    }
     buffer.writeln();
     for (int i = 0; i < chunks.length; i++) {
-      buffer.writeln('[${i + 1}] Quelle: ${chunks[i].sourceFile}');
+      buffer.writeln('[${i + 1}] Source: ${chunks[i].sourceFile}');
       buffer.writeln(chunks[i].text);
       buffer.writeln();
     }
-    buffer.writeln('Beantworte die Frage basierend auf den obigen Informationen.');
+    if (lang == 'de') {
+      buffer.writeln('Beantworte die Frage basierend auf den obigen Informationen.');
+    } else {
+      buffer.writeln('Answer the question based on the information above.');
+    }
     return buffer.toString();
   }
 

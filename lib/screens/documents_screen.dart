@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
@@ -68,10 +69,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 
   Future<String> _readFileAsText(String path) async {
-    // ignore: avoid_slow_async_io
-    final file = await Future.value(path); // placeholder
-    // TODO: implement actual file reading
-    return 'Dateiinhalt von $path';
+    // PDF support requires a separate package (e.g. pdfx) — Week 3.
+    // For now, read plain text / markdown files directly.
+    return File(path).readAsString();
   }
 
   @override
