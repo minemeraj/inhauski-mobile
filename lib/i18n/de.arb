@@ -23,6 +23,8 @@
   "docsClearIndex": "Index leeren",
   "docsClearIndexDone": "Dokumentenindex geleert.",
   "docsError": "Fehler",
+  "docsNoEmbedWarning": "RAG deaktiviert — Einbettungsmodell nicht installiert.",
+  "docsNoEmbedAction": "Jetzt herunterladen",
 
   "setupWelcome": "Willkommen bei InHausKI",
   "setupTagline": "Ihre KI. Ihr Gerät. Kein Internet.",
@@ -44,6 +46,8 @@
 
   "settingsModel": "KI-Modell",
   "settingsModelNotLoaded": "Nicht geladen",
+  "settingsEmbedModel": "Einbettungsmodell",
+  "settingsEmbedNotLoaded": "Nicht installiert",
   "settingsGpu": "GPU-Beschleunigung",
   "settingsGpuAuto": "Automatisch",
   "settingsGpuSubtitleAuto": "Metal (iOS) / OpenCL (Android)",

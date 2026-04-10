@@ -30,6 +30,22 @@ class RagService extends ChangeNotifier {
   bool get isIngesting => _isIngesting;
   int get totalChunks => _box.count();
 
+  /// Distinct source file names currently in the index.
+  ///
+  /// Reads all chunks and deduplicates by [VectorChunk.sourceFile].
+  /// Acceptable for typical mobile document counts (<1 000 chunks).
+  List<String> get sourcesInIndex {
+    final query = _box.query().build();
+    final chunks = query.find();
+    query.close();
+    final seen = <String>{};
+    for (final c in chunks) {
+      seen.add(c.sourceFile);
+    }
+    final result = seen.toList()..sort();
+    return result;
+  }
+
   RagService(this._embedder, this._box);
 
   // ── Ingestion ──────────────────────────────────────────────────────────────

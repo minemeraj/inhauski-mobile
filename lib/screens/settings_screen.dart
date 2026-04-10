@@ -1,17 +1,91 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
+import '../services/embedding_service.dart';
 import '../services/llama_service.dart';
 import '../services/locale_service.dart';
 import '../i18n/app_localizations.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  // Inline embedding download state (shown when model not installed)
+  double? _embedProgress;
+  String? _embedStatus;
+  bool _isEmbedDownloading = false;
+
+  Future<void> _downloadEmbedModel() async {
+    final embedSvc = context.read<EmbeddingService>();
+    setState(() {
+      _isEmbedDownloading = true;
+      _embedProgress = 0;
+      _embedStatus = '…';
+    });
+
+    try {
+      final destPath = await EmbeddingService.defaultModelPath;
+      final modelsDir = Directory(destPath).parent;
+      await modelsDir.create(recursive: true);
+
+      final client = http.Client();
+      final request =
+          http.Request('GET', Uri.parse(EmbeddingService.downloadUrl));
+      final response = await client.send(request);
+      final total =
+          response.contentLength ?? EmbeddingService.expectedBytes;
+
+      final sink = File(destPath).openWrite();
+      int received = 0;
+
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        final pct = received / total;
+        final mb = received / 1e6;
+        final totalMb = total / 1e6;
+        if (mounted) {
+          setState(() {
+            _embedProgress = pct;
+            _embedStatus =
+                '${(pct * 100).toStringAsFixed(1)}%  '
+                '${mb.toStringAsFixed(0)} / ${totalMb.toStringAsFixed(0)} MB';
+          });
+        }
+      }
+
+      await sink.close();
+      client.close();
+
+      if (mounted) {
+        await embedSvc.loadModel(destPath);
+        setState(() {
+          _isEmbedDownloading = false;
+          _embedProgress = null;
+          _embedStatus = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isEmbedDownloading = false;
+          _embedStatus = 'Error: $e';
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final llama = context.watch<LlamaService>();
+    final embedSvc = context.watch<EmbeddingService>();
     final localeService = context.watch<LocaleService>();
     final currentLang = localeService.locale?.languageCode ??
         Localizations.localeOf(context).languageCode;
@@ -20,19 +94,59 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: Text(loc.navSettings)),
       body: ListView(
         children: [
-          // ── Model ───────────────────────────────────────────────────────
+          // ── Chat model ──────────────────────────────────────────────────
           _SectionHeader(title: loc.settingsModel),
           ListTile(
             leading: const Icon(Icons.smart_toy_outlined),
             title: const Text('Gemma 4 2B Instruct (Q4_K_M)'),
             subtitle: Text(llama.modelPath ?? loc.settingsModelNotLoaded),
-            trailing: llama.isModelLoaded
-                ? const Icon(Icons.check_circle, color: Colors.green)
-                : llama.errorMessage != null
-                    ? const Icon(Icons.error_outline, color: Colors.red)
-                    : const Icon(Icons.hourglass_top_outlined,
-                        color: Colors.orange),
+            trailing: _modelStatusIcon(llama),
           ),
+
+          const Divider(),
+
+          // ── Embedding model ─────────────────────────────────────────────
+          _SectionHeader(title: loc.settingsEmbedModel),
+          if (embedSvc.isLoaded)
+            ListTile(
+              leading: const Icon(Icons.hub_outlined),
+              title: Text(EmbeddingService.defaultFilename),
+              subtitle: Text(embedSvc.modelPath ?? ''),
+              trailing: const Icon(Icons.check_circle, color: Colors.green),
+            )
+          else if (_isEmbedDownloading || _embedProgress != null)
+            ListTile(
+              leading: const Icon(Icons.hub_outlined),
+              title: Text(EmbeddingService.defaultFilename),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(value: _embedProgress),
+                  const SizedBox(height: 4),
+                  Text(_embedStatus ?? '',
+                      style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+              isThreeLine: true,
+            )
+          else
+            ListTile(
+              leading: const Icon(Icons.hub_outlined),
+              title: Text(EmbeddingService.defaultFilename),
+              subtitle: Text(
+                embedSvc.errorMessage ?? loc.settingsEmbedNotLoaded,
+                style: embedSvc.errorMessage != null
+                    ? TextStyle(
+                        color: Theme.of(context).colorScheme.error)
+                    : null,
+              ),
+              trailing: TextButton.icon(
+                icon: const Icon(Icons.download, size: 18),
+                label: const Text('~90 MB'),
+                onPressed: _downloadEmbedModel,
+              ),
+            ),
 
           const Divider(),
 
@@ -85,9 +199,9 @@ class SettingsScreen extends StatelessWidget {
           ),
           RadioListTile<String>(
             title: Text(loc.settingsLanguageSystem),
-            // Use a sentinel value that cannot match a real language code.
             value: 'system',
-            groupValue: localeService.locale == null ? 'system' : currentLang,
+            groupValue:
+                localeService.locale == null ? 'system' : currentLang,
             onChanged: (_) =>
                 context.read<LocaleService>().setLocale(null),
           ),
@@ -119,6 +233,7 @@ class SettingsScreen extends StatelessWidget {
               );
               if (confirm == true && context.mounted) {
                 await context.read<LlamaService>().resetSetup();
+                await context.read<EmbeddingService>().reset();
               }
             },
           ),
@@ -135,6 +250,16 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _modelStatusIcon(LlamaService llama) {
+    if (llama.isModelLoaded) {
+      return const Icon(Icons.check_circle, color: Colors.green);
+    }
+    if (llama.errorMessage != null) {
+      return const Icon(Icons.error_outline, color: Colors.red);
+    }
+    return const Icon(Icons.hourglass_top_outlined, color: Colors.orange);
   }
 }
 

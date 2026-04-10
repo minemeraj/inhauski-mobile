@@ -55,6 +55,8 @@ abstract class AppLocalizations {
   String get docsClearIndex;
   String get docsClearIndexDone;
   String get docsError;
+  String get docsNoEmbedWarning;
+  String get docsNoEmbedAction;
 
   // Setup
   String get setupWelcome;
@@ -81,6 +83,8 @@ abstract class AppLocalizations {
   // Settings
   String get settingsModel;
   String get settingsModelNotLoaded;
+  String get settingsEmbedModel;
+  String get settingsEmbedNotLoaded;
   String get settingsGpu;
   String get settingsGpuAuto;
   String get settingsGpuSubtitleAuto;
@@ -121,6 +125,9 @@ class _AppLocalizationsDe extends AppLocalizations {
   @override String get docsClearIndex => 'Index leeren';
   @override String get docsClearIndexDone => 'Dokumentenindex geleert.';
   @override String get docsError => 'Fehler';
+  @override String get docsNoEmbedWarning =>
+      'RAG deaktiviert — Einbettungsmodell nicht installiert.';
+  @override String get docsNoEmbedAction => 'Jetzt herunterladen';
   @override String get setupWelcome => 'Willkommen bei InHausKI';
   @override String get setupTagline => 'Ihre KI. Ihr Gerät. Kein Internet.';
   @override String get setupLanguageLabel => 'Sprache / Language';
@@ -141,6 +148,8 @@ class _AppLocalizationsDe extends AppLocalizations {
   @override String get buttonRetry => 'Erneut versuchen';
   @override String get settingsModel => 'KI-Modell';
   @override String get settingsModelNotLoaded => 'Nicht geladen';
+  @override String get settingsEmbedModel => 'Einbettungsmodell';
+  @override String get settingsEmbedNotLoaded => 'Nicht installiert';
   @override String get settingsGpu => 'GPU-Beschleunigung';
   @override String get settingsGpuAuto => 'Automatisch';
   @override String get settingsGpuSubtitleAuto => 'Metal (iOS) / OpenCL (Android)';
@@ -181,6 +190,9 @@ class _AppLocalizationsEn extends AppLocalizations {
   @override String get docsClearIndex => 'Clear index';
   @override String get docsClearIndexDone => 'Document index cleared.';
   @override String get docsError => 'Error';
+  @override String get docsNoEmbedWarning =>
+      'RAG disabled — embedding model not installed.';
+  @override String get docsNoEmbedAction => 'Download now';
   @override String get setupWelcome => 'Welcome to InHausKI';
   @override String get setupTagline => 'Your AI. Your device. No internet.';
   @override String get setupLanguageLabel => 'Language';
@@ -201,6 +213,8 @@ class _AppLocalizationsEn extends AppLocalizations {
   @override String get buttonRetry => 'Retry';
   @override String get settingsModel => 'AI Model';
   @override String get settingsModelNotLoaded => 'Not loaded';
+  @override String get settingsEmbedModel => 'Embedding model';
+  @override String get settingsEmbedNotLoaded => 'Not installed';
   @override String get settingsGpu => 'GPU Acceleration';
   @override String get settingsGpuAuto => 'Automatic';
   @override String get settingsGpuSubtitleAuto => 'Metal (iOS) / OpenCL (Android)';

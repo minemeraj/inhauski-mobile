@@ -23,6 +23,8 @@
   "docsClearIndex": "Clear index",
   "docsClearIndexDone": "Document index cleared.",
   "docsError": "Error",
+  "docsNoEmbedWarning": "RAG disabled — embedding model not installed.",
+  "docsNoEmbedAction": "Download now",
 
   "setupWelcome": "Welcome to InHausKI",
   "setupTagline": "Your AI. Your device. No internet.",
@@ -44,6 +46,8 @@
 
   "settingsModel": "AI Model",
   "settingsModelNotLoaded": "Not loaded",
+  "settingsEmbedModel": "Embedding model",
+  "settingsEmbedNotLoaded": "Not installed",
   "settingsGpu": "GPU Acceleration",
   "settingsGpuAuto": "Automatic",
   "settingsGpuSubtitleAuto": "Metal (iOS) / OpenCL (Android)",
