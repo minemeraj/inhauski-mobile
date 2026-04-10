@@ -6,11 +6,12 @@ import 'package:path/path.dart' as p;
 import 'storage/vector_chunk.dart';
 export 'storage/vector_chunk.dart';
 
-// The generated binding is in objectbox.g.dart (part of this library).
-// objectbox_generator outputs this file at lib/objectbox.g.dart when the
-// store file lives at the lib/ root (the standard objectbox project layout).
+// objectbox_generator 5.x outputs a standalone (non-part) file at
+// lib/objectbox.g.dart.  Import and re-export it so callers that import
+// objectbox_store.dart also get openStore(), VectorChunk_, etc.
 // Run:  dart run build_runner build --delete-conflicting-outputs
-part 'objectbox.g.dart';
+import 'objectbox.g.dart';
+export 'objectbox.g.dart';
 
 /// Singleton wrapper around the ObjectBox [Store].
 ///
