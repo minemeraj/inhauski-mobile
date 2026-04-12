@@ -74,13 +74,14 @@ jobs:
 
       # ── 5b. Inject signing config (only when keystore secrets are set) ────
       - name: Inject signing config
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No KEYSTORE_BASE64 secret set — skipping signing config."
+            exit 0
+          fi
+
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
 
           if [ -f android/app/build.gradle.kts ]; then
@@ -142,18 +143,23 @@ jobs:
 
       # ── 10. Build release AAB (only when keystore secrets are present) ────
       - name: Build release AAB (Play Store)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: flutter build appbundle --release --verbose
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No KEYSTORE_BASE64 secret set — skipping release AAB build."
+            exit 0
+          fi
+          flutter build appbundle --release --verbose
 
       - name: Upload release AAB artifact
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: ignore
           retention-days: 30
