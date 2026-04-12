@@ -24,22 +24,22 @@ class _ModelConfig {
   });
 }
 
-/// Gemma 4 E2B IT — Q4_K_M quant from bartowski (~3.46 GB).
+/// Gemma 4 E2B IT — Q4_K_M quant from bartowski (2.89 GiB on disk).
 /// Hosted on Hugging Face; supports HTTP Range requests (resumable).
 const _chatModels = [
   _ModelConfig(
-    name: 'Gemma 4 E2B Instruct (Q4_K_M) — 3.5 GB',
+    name: 'Gemma 4 E2B Instruct (Q4_K_M) — 2.9 GB',
     filename: 'gemma-4-E2B-it-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/google_gemma-4-E2B-it-GGUF'
         '/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf',
-    expectedBytes: 3_460_000_000,
+    expectedBytes: 3_103_113_871, // 2.89 GiB
   ),
   _ModelConfig(
-    name: 'Gemma 4 E2B Instruct (IQ2_M) — 2.6 GB (lower RAM)',
+    name: 'Gemma 4 E2B Instruct (IQ2_M) — 2.4 GB (lower RAM)',
     filename: 'gemma-4-E2B-it-IQ2_M.gguf',
     url: 'https://huggingface.co/bartowski/google_gemma-4-E2B-it-GGUF'
         '/resolve/main/gemma-4-E2B-it-IQ2_M.gguf',
-    expectedBytes: 2_620_000_000,
+    expectedBytes: 2_446_682_624, // 2.28 GiB
   ),
 ];
 

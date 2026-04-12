@@ -30,7 +30,7 @@
   "setupTagline": "Your AI. Your device. No internet.",
   "setupLanguageLabel": "Language",
   "setupModelChoose": "Choose AI model",
-  "setupModelHint": "The model is downloaded once (Q4_K_M ≈ 3.5 GB, IQ2_M ≈ 2.6 GB) and then runs fully offline. Download can be paused and resumed.",
+  "setupModelHint": "The model is downloaded once (Q4_K_M ≈ 2.9 GB, IQ2_M ≈ 2.4 GB) and then runs fully offline. Download can be paused and resumed.",
   "setupGpuLabel": "GPU Acceleration",
   "setupDownloading": "Loading AI model",
   "setupDownloadButton": "Download",

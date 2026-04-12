@@ -136,7 +136,7 @@ class _AppLocalizationsDe extends AppLocalizations {
   @override String get setupTagline => 'Ihre KI. Ihr Gerät. Kein Internet.';
   @override String get setupLanguageLabel => 'Sprache / Language';
   @override String get setupModelChoose => 'KI-Modell wählen';
-  @override String get setupModelHint => 'Das Modell wird einmalig heruntergeladen (Q4_K_M ≈ 3,5 GB, IQ2_M ≈ 2,6 GB). Danach läuft alles offline. Download kann pausiert und fortgesetzt werden.';
+  @override String get setupModelHint => 'Das Modell wird einmalig heruntergeladen (Q4_K_M ≈ 2,9 GB, IQ2_M ≈ 2,4 GB). Danach läuft alles offline. Download kann pausiert und fortgesetzt werden.';
   @override String get setupGpuLabel => 'GPU-Beschleunigung';
   @override String get setupDownloading => 'KI-Modell laden';
   @override String get setupDownloadButton => 'Herunterladen';
@@ -205,7 +205,7 @@ class _AppLocalizationsEn extends AppLocalizations {
   @override String get setupTagline => 'Your AI. Your device. No internet.';
   @override String get setupLanguageLabel => 'Language';
   @override String get setupModelChoose => 'Choose AI model';
-  @override String get setupModelHint => 'The model is downloaded once (Q4_K_M ≈ 3.5 GB, IQ2_M ≈ 2.6 GB) and then runs fully offline. Download can be paused and resumed.';
+  @override String get setupModelHint => 'The model is downloaded once (Q4_K_M ≈ 2.9 GB, IQ2_M ≈ 2.4 GB) and then runs fully offline. Download can be paused and resumed.';
   @override String get setupGpuLabel => 'GPU Acceleration';
   @override String get setupDownloading => 'Loading AI model';
   @override String get setupDownloadButton => 'Download';
