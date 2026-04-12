@@ -1,5 +1,99 @@
 # Google Play Store – Setup & Submission Guide
 
+## 0. Developer Account & D-U-N-S Number (do this FIRST)
+
+Before anything else, you need a Google Play developer account. There are
+two account types — choose wisely because this determines whether you must
+do a 14-day closed test with 12 testers before publishing.
+
+### Account types
+
+| Account type | 12 testers / 14 days? | Extra requirements |
+|---|---|---|
+| **Personal** (created before Nov 13, 2023) | No | Publish directly |
+| **Personal** (created after Nov 13, 2023) | **Yes** | Must do closed test first |
+| **Organization** (any date) | **No** | Needs D-U-N-S number |
+
+**Recommendation:** Register as **Organization** to skip the testing
+requirement entirely. Even as a Kleinunternehmer / Einzelunternehmer in
+Germany you can use an Organization account — you just need a free D-U-N-S
+number.
+
+### What is a D-U-N-S number?
+
+A D-U-N-S (Data Universal Numbering System) number is a free, unique 9-digit
+business identifier assigned by Dun & Bradstreet (D&B). It is used by both
+Google Play and Apple to verify your business identity.
+
+### How to get a D-U-N-S number (free)
+
+**Step 1 — Check if you already have one:**
+
+Go to https://www.dnb.com/duns/get-a-duns.html and search your business name
+and address. Many German businesses already have one without knowing it.
+
+**Step 2 — If not found, request one:**
+
+On the same page, submit a request. You will need:
+
+- **Legal business name** — exactly as on your Gewerbeschein
+- **Business address** — your registered business address
+- **Your contact info** — name, email, phone number
+- **Business type** — Einzelunternehmen (sole proprietorship)
+
+**Alternative:** Apple's D-U-N-S lookup tool sometimes processes German
+requests faster: https://developer.apple.com/enroll/duns-lookup/
+The D-U-N-S number is universal — works for both Apple and Google.
+
+**You do NOT need:**
+- A Steuernummer (tax ID) from the Finanzamt
+- A Gewerbeschein (trade license) — helpful but not required by D&B
+- Any government registration document
+
+D&B assigns the number based on your self-reported business information.
+A D&B representative may call you to verify details (business type, number
+of employees, etc.).
+
+### Timeline
+
+| Step | Duration |
+|---|---|
+| Submit D-U-N-S request | Same day |
+| D&B processes and assigns number | **Up to 5 business days** (often faster) |
+| Number appears in Google Play systems | +2 business days |
+| **Total** | **~1–2 weeks** |
+
+### Register the Google Play developer account
+
+1. Go to https://play.google.com/console
+2. Choose **"Create a developer account"**
+3. Select **Organization** as account type
+4. Enter your D-U-N-S number when prompted
+5. Pay the **one-time $25 USD** registration fee
+6. Complete identity verification (legal name, address, contact info)
+
+**No Steuernummer or Finanzamt registration needed** to publish a free app.
+You only need tax information later if you monetize (paid app, ads, in-app
+purchases).
+
+### When DO you need the Finanzamt?
+
+| Situation | Tax ID needed? |
+|---|---|
+| Publishing a free app (no ads, no IAP) | **No** |
+| Earning money through the app | **Yes** — need Steuernummer |
+| VAT / Umsatzsteuer | As Kleinunternehmer (< 22,000 EUR/year) you're exempt under §19 UStG |
+
+### Note for Apple App Store (future)
+
+Apple is **stricter** than Google about organization accounts. Apple does not
+accept sole proprietorships (Einzelunternehmen) — only legal entities
+(GmbH, UG, etc.). As a Kleinunternehmer you would need to enroll as an
+**individual** on Apple ($99/year). The D-U-N-S number is still useful if you
+later form a GmbH/UG.
+
+---
+
 ## 1. Keystore Generation (one-time, do this first)
 
 A release keystore is required to sign the AAB you upload to Google Play.
@@ -270,10 +364,14 @@ Screenshots must show real app functionality (setup wizard, chat, documents scre
 
 ---
 
-## 11. Closed Testing (New Accounts Only)
+## 11. Closed Testing (Personal Accounts Only — skip if Organization)
 
-If your Google Play developer account was created **after November 13, 2023**,
-you must complete a closed test before publishing to production:
+> **If you registered as an Organization** (see Section 0), you can skip this
+> entirely and publish directly to production.
+
+If your Google Play developer account is a **personal** account created
+**after November 13, 2023**, you must complete a closed test before publishing
+to production:
 
 1. In Play Console, go to **Testing → Closed testing → Create track (Alpha)**
 2. Upload the release AAB
@@ -284,3 +382,22 @@ you must complete a closed test before publishing to production:
 7. Google reviews and approves within ~7 days
 
 Total time before you can go live: **~3–4 weeks** from when you start the closed test.
+
+### Recruiting testers
+
+- Friends, family, colleagues — anyone with a Gmail address
+- Testers must **opt in** via the link you share and **keep the app installed**
+  for 14 consecutive days
+- Post in relevant communities (Reddit, Discord, Telegram groups for AI/privacy)
+- The testers do NOT need to actively use the app — they just need to be
+  opted in with the app installed
+
+### After the 14 days
+
+In Play Console → Dashboard → **Apply for production**, you must answer:
+1. How you recruited testers
+2. What feedback you received
+3. What changes you made based on feedback
+4. How you decided the app is production-ready
+
+Google reviews this within ~7 days and then unlocks the Production track.
