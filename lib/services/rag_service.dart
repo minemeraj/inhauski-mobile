@@ -52,6 +52,8 @@ class RagService extends ChangeNotifier {
 
   /// Ingest plain text from [sourceFile].
   /// Chunks are persisted in ObjectBox so they survive restarts.
+  /// If [sourceFile] is already indexed its existing chunks are removed first
+  /// so re-importing the same file doesn't produce duplicates.
   Future<void> ingestText({
     required String text,
     required String sourceFile,
@@ -59,6 +61,17 @@ class RagService extends ChangeNotifier {
   }) async {
     _isIngesting = true;
     notifyListeners();
+
+    // Remove any previously ingested chunks for this source so re-importing
+    // the same file doesn't double-up results in retrieval.
+    final existing = _box
+        .query(VectorChunk_.sourceFile.equals(sourceFile))
+        .build();
+    final existingIds = existing.findIds();
+    existing.close();
+    if (existingIds.isNotEmpty) {
+      _box.removeMany(existingIds);
+    }
 
     try {
       final chunks = _chunk(text);

@@ -1,11 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../services/embedding_service.dart';
 import '../services/llama_service.dart';
 import '../services/locale_service.dart';
+import '../services/model_download_service.dart';
 import '../i18n/app_localizations.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,69 +15,23 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // Inline embedding download state (shown when model not installed)
-  double? _embedProgress;
-  String? _embedStatus;
-  bool _isEmbedDownloading = false;
+  ModelDownloadService? _embedDownloader;
 
-  Future<void> _downloadEmbedModel() async {
-    final embedSvc = context.read<EmbeddingService>();
-    setState(() {
-      _isEmbedDownloading = true;
-      _embedProgress = 0;
-      _embedStatus = '…';
-    });
+  Future<ModelDownloadService> _getEmbedDownloader() async {
+    if (_embedDownloader != null) return _embedDownloader!;
+    final path = await EmbeddingService.defaultModelPath;
+    _embedDownloader = ModelDownloadService(
+      url: EmbeddingService.downloadUrl,
+      destPath: path,
+      expectedBytes: EmbeddingService.expectedBytes,
+    );
+    return _embedDownloader!;
+  }
 
-    try {
-      final destPath = await EmbeddingService.defaultModelPath;
-      final modelsDir = Directory(destPath).parent;
-      await modelsDir.create(recursive: true);
-
-      final client = http.Client();
-      final request =
-          http.Request('GET', Uri.parse(EmbeddingService.downloadUrl));
-      final response = await client.send(request);
-      final total =
-          response.contentLength ?? EmbeddingService.expectedBytes;
-
-      final sink = File(destPath).openWrite();
-      int received = 0;
-
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        received += chunk.length;
-        final pct = received / total;
-        final mb = received / 1e6;
-        final totalMb = total / 1e6;
-        if (mounted) {
-          setState(() {
-            _embedProgress = pct;
-            _embedStatus =
-                '${(pct * 100).toStringAsFixed(1)}%  '
-                '${mb.toStringAsFixed(0)} / ${totalMb.toStringAsFixed(0)} MB';
-          });
-        }
-      }
-
-      await sink.close();
-      client.close();
-
-      if (mounted) {
-        await embedSvc.loadModel(destPath);
-        setState(() {
-          _isEmbedDownloading = false;
-          _embedProgress = null;
-          _embedStatus = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isEmbedDownloading = false;
-          _embedStatus = 'Error: $e';
-        });
-      }
-    }
+  @override
+  void dispose() {
+    _embedDownloader?.dispose();
+    super.dispose();
   }
 
   @override
@@ -90,6 +43,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final currentLang = localeService.locale?.languageCode ??
         Localizations.localeOf(context).languageCode;
 
+    // Disable GPU radio buttons while loading or inferring
+    final gpuChangeable = !llama.isInferring && llama.isModelLoaded;
+
     return Scaffold(
       appBar: AppBar(title: Text(loc.navSettings)),
       body: ListView(
@@ -98,7 +54,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SectionHeader(title: loc.settingsModel),
           ListTile(
             leading: const Icon(Icons.smart_toy_outlined),
-            title: const Text('Gemma 4 2B Instruct (Q4_K_M)'),
+            // Show the model name the user picked in the wizard, or fall
+            // back to the filename portion of the path.
+            title: Text(llama.modelName ??
+                llama.modelPath?.split('/').last ??
+                loc.settingsModelNotLoaded),
             subtitle: Text(llama.modelPath ?? loc.settingsModelNotLoaded),
             trailing: _modelStatusIcon(llama),
           ),
@@ -114,39 +74,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: Text(embedSvc.modelPath ?? ''),
               trailing: const Icon(Icons.check_circle, color: Colors.green),
             )
-          else if (_isEmbedDownloading || _embedProgress != null)
-            ListTile(
-              leading: const Icon(Icons.hub_outlined),
-              title: Text(EmbeddingService.defaultFilename),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  LinearProgressIndicator(value: _embedProgress),
-                  const SizedBox(height: 4),
-                  Text(_embedStatus ?? '',
-                      style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-              isThreeLine: true,
-            )
           else
-            ListTile(
-              leading: const Icon(Icons.hub_outlined),
-              title: Text(EmbeddingService.defaultFilename),
-              subtitle: Text(
-                embedSvc.errorMessage ?? loc.settingsEmbedNotLoaded,
-                style: embedSvc.errorMessage != null
-                    ? TextStyle(
-                        color: Theme.of(context).colorScheme.error)
-                    : null,
-              ),
-              trailing: TextButton.icon(
-                icon: const Icon(Icons.download, size: 18),
-                label: const Text('~90 MB'),
-                onPressed: _downloadEmbedModel,
-              ),
-            ),
+            _buildEmbedDownloadTile(loc, embedSvc),
 
           const Divider(),
 
@@ -157,26 +86,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(loc.settingsGpuSubtitleAuto),
             value: GpuMode.auto,
             groupValue: llama.gpuMode,
-            onChanged: llama.isInferring
-                ? null
-                : (mode) => context.read<LlamaService>().setGpuMode(mode!),
+            onChanged: gpuChangeable
+                ? (mode) =>
+                    context.read<LlamaService>().setGpuMode(mode!)
+                : null,
           ),
           RadioListTile<GpuMode>(
             title: Text(loc.settingsGpuForce),
             value: GpuMode.gpu,
             groupValue: llama.gpuMode,
-            onChanged: llama.isInferring
-                ? null
-                : (mode) => context.read<LlamaService>().setGpuMode(mode!),
+            onChanged: gpuChangeable
+                ? (mode) =>
+                    context.read<LlamaService>().setGpuMode(mode!)
+                : null,
           ),
           RadioListTile<GpuMode>(
             title: Text(loc.settingsGpuCpu),
             subtitle: Text(loc.settingsGpuSubtitleCpu),
             value: GpuMode.cpu,
             groupValue: llama.gpuMode,
-            onChanged: llama.isInferring
-                ? null
-                : (mode) => context.read<LlamaService>().setGpuMode(mode!),
+            onChanged: gpuChangeable
+                ? (mode) =>
+                    context.read<LlamaService>().setGpuMode(mode!)
+                : null,
           ),
 
           const Divider(),
@@ -244,11 +176,122 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SectionHeader(title: loc.settingsAbout),
           ListTile(
             leading: const Icon(Icons.info_outline),
-            title: const Text('Version 1.0.0'),
+            title: const Text('InHausKI v1.0.0'),
             subtitle: Text(loc.settingsAboutSubtitle),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEmbedDownloadTile(
+      AppLocalizations loc, EmbeddingService embedSvc) {
+    return FutureBuilder<ModelDownloadService>(
+      future: _getEmbedDownloader(),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return ListTile(
+            leading: const Icon(Icons.hub_outlined),
+            title: Text(EmbeddingService.defaultFilename),
+            subtitle: Text(embedSvc.errorMessage ?? loc.settingsEmbedNotLoaded,
+                style: embedSvc.errorMessage != null
+                    ? TextStyle(
+                        color: Theme.of(context).colorScheme.error)
+                    : null),
+          );
+        }
+        final dl = snap.data!;
+
+        // Auto-load after download completes
+        if (dl.isDone && !embedSvc.isLoaded && !embedSvc.isLoading) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (mounted) {
+              await context
+                  .read<EmbeddingService>()
+                  .loadModel(dl.destPath);
+            }
+          });
+        }
+
+        return ListenableBuilder(
+          listenable: dl,
+          builder: (context, _) {
+            if (dl.status == DownloadStatus.downloading ||
+                dl.status == DownloadStatus.paused) {
+              final progress = dl.progress;
+              final pct = progress != null
+                  ? '${(progress * 100).toStringAsFixed(1)}%'
+                  : '…';
+              final mb =
+                  '${(dl.receivedBytes / 1e6).toStringAsFixed(0)} / '
+                  '${(dl.totalBytes / 1e6).toStringAsFixed(0)} MB';
+              return ListTile(
+                leading: const Icon(Icons.hub_outlined),
+                title: Text(EmbeddingService.defaultFilename),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('$pct — $mb',
+                            style:
+                                Theme.of(context).textTheme.bodySmall),
+                        if (dl.status == DownloadStatus.downloading)
+                          TextButton(
+                            onPressed: dl.pause,
+                            child: Text(loc.setupDownloadPause),
+                          )
+                        else
+                          TextButton(
+                            onPressed: dl.start,
+                            child: Text(loc.setupDownloadResume),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+                isThreeLine: true,
+              );
+            }
+
+            if (dl.status == DownloadStatus.error) {
+              return ListTile(
+                leading: const Icon(Icons.hub_outlined),
+                title: Text(EmbeddingService.defaultFilename),
+                subtitle: Text(dl.errorMessage ?? loc.settingsEmbedNotLoaded,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.error)),
+                trailing: TextButton.icon(
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(loc.buttonRetry),
+                  onPressed: dl.start,
+                ),
+              );
+            }
+
+            // Idle / done
+            return ListTile(
+              leading: const Icon(Icons.hub_outlined),
+              title: Text(EmbeddingService.defaultFilename),
+              subtitle: Text(
+                  embedSvc.errorMessage ?? loc.settingsEmbedNotLoaded,
+                  style: embedSvc.errorMessage != null
+                      ? TextStyle(
+                          color: Theme.of(context).colorScheme.error)
+                      : null),
+              trailing: TextButton.icon(
+                icon: const Icon(Icons.download, size: 18),
+                label: const Text('~90 MB'),
+                onPressed: dl.start,
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -259,7 +302,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (llama.errorMessage != null) {
       return const Icon(Icons.error_outline, color: Colors.red);
     }
-    return const Icon(Icons.hourglass_top_outlined, color: Colors.orange);
+    return const SizedBox(
+      width: 20,
+      height: 20,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    );
   }
 }
 

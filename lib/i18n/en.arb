@@ -13,18 +13,29 @@
   "chatNewSession": "New conversation",
   "chatEmptyTitle": "Ready to chat",
   "chatEmptySubtitle": "Your AI runs locally.\nNo data ever leaves your device.",
+  "chatError": "Response error",
+  "chatErrorDetail": "Error: {detail}",
+  "@chatErrorDetail": {
+    "placeholders": { "detail": { "type": "String" } }
+  },
 
   "docsImport": "Import document",
   "docsProcessing": "Processing",
   "docsReady": "Document ready",
   "docsChunks": "chunks",
   "docsIndexed": "in local index",
-  "docsFormats": "Supported formats: PDF, TXT, Markdown",
+  "docsFormats": "Supported formats: TXT, Markdown",
   "docsClearIndex": "Clear index",
   "docsClearIndexDone": "Document index cleared.",
   "docsError": "Error",
   "docsNoEmbedWarning": "RAG disabled — embedding model not installed.",
   "docsNoEmbedAction": "Download now",
+  "docsDeleteConfirm": "Remove all chunks of this file from the index?",
+  "docsDeleteAction": "Remove",
+  "docsFiles": "{n,plural, =1{1 file} other{{n} files}}",
+  "@docsFiles": {
+    "placeholders": { "n": { "type": "int" } }
+  },
 
   "setupWelcome": "Welcome to InHausKI",
   "setupTagline": "Your AI. Your device. No internet.",
@@ -45,7 +56,11 @@
   "setupEmbedHint": "The embedding model (~90 MB) enables document search. You can skip this — RAG will be disabled until it is downloaded.",
   "setupEmbedSkip": "Skip for now",
 
-  "loadingModelMessage": "Loading Gemma 4 2B...",
+  "loadingModelMessage": "Loading AI model...",
+  "loadingModelNamed": "Loading {name}...",
+  "@loadingModelNamed": {
+    "placeholders": { "name": { "type": "String" } }
+  },
   "loadingModelSubtitle": "This may take a few minutes on first run.",
 
   "settingsModel": "AI Model",

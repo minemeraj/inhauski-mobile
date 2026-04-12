@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../services/embedding_service.dart';
+import '../services/model_download_service.dart';
 import '../services/rag_service.dart';
 import '../i18n/app_localizations.dart';
 
@@ -19,70 +19,24 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   double? _progress;
   String? _currentFile;
 
-  // ── Embedding model download (shown inline when model is absent) ──────────
+  // Lazily-created resumable downloader for the embedding model.
+  ModelDownloadService? _embedDownloader;
 
-  double? _embedProgress;
-  String? _embedStatus;
-  bool _isEmbedDownloading = false;
+  Future<ModelDownloadService> _getEmbedDownloader() async {
+    if (_embedDownloader != null) return _embedDownloader!;
+    final path = await EmbeddingService.defaultModelPath;
+    _embedDownloader = ModelDownloadService(
+      url: EmbeddingService.downloadUrl,
+      destPath: path,
+      expectedBytes: EmbeddingService.expectedBytes,
+    );
+    return _embedDownloader!;
+  }
 
-  Future<void> _downloadEmbedModel() async {
-    final embedSvc = context.read<EmbeddingService>();
-    setState(() {
-      _isEmbedDownloading = true;
-      _embedProgress = 0;
-      _embedStatus = '…';
-    });
-
-    try {
-      final destPath = await EmbeddingService.defaultModelPath;
-      final modelsDir = Directory(destPath).parent;
-      await modelsDir.create(recursive: true);
-
-      final client = http.Client();
-      final request =
-          http.Request('GET', Uri.parse(EmbeddingService.downloadUrl));
-      final response = await client.send(request);
-      final total =
-          response.contentLength ?? EmbeddingService.expectedBytes;
-
-      final sink = File(destPath).openWrite();
-      int received = 0;
-
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        received += chunk.length;
-        final pct = received / total;
-        final mb = received / 1e6;
-        final totalMb = total / 1e6;
-        if (mounted) {
-          setState(() {
-            _embedProgress = pct;
-            _embedStatus =
-                '${(pct * 100).toStringAsFixed(1)}% — '
-                '${mb.toStringAsFixed(0)} / ${totalMb.toStringAsFixed(0)} MB';
-          });
-        }
-      }
-
-      await sink.close();
-      client.close();
-
-      if (mounted) {
-        await embedSvc.loadModel(destPath);
-        setState(() {
-          _isEmbedDownloading = false;
-          _embedProgress = null;
-          _embedStatus = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isEmbedDownloading = false;
-          _embedStatus = 'Error: $e';
-        });
-      }
-    }
+  @override
+  void dispose() {
+    _embedDownloader?.dispose();
+    super.dispose();
   }
 
   // ── Document import ───────────────────────────────────────────────────────
@@ -90,7 +44,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   Future<void> _importDocument() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'txt', 'md'],
+      allowedExtensions: ['txt', 'md'],
       allowMultiple: false,
     );
 
@@ -107,18 +61,19 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     });
 
     try {
-      final content = await _readFileAsText(file.path!, file.name);
+      final content = await File(file.path!).readAsString();
 
       await rag.ingestText(
         text: content,
         sourceFile: file.name,
-        onProgress: (p) => setState(() => _progress = p),
+        onProgress: (p) {
+          if (mounted) setState(() => _progress = p);
+        },
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              '${file.name}: ${rag.totalChunks} ${loc.docsChunks}'),
+          content: Text('${file.name}: ${rag.totalChunks} ${loc.docsChunks}'),
         ));
       }
     } catch (e) {
@@ -138,42 +93,24 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     }
   }
 
-  /// Extract plain text from a file (PDF, TXT, or Markdown).
-  Future<String> _readFileAsText(String path, String name) async {
-    final ext = name.toLowerCase().split('.').last;
-    if (ext == 'pdf') return _extractPdfText(path);
-    return File(path).readAsString();
-  }
-
-  Future<String> _extractPdfText(String path) async {
-    // pdfx is a PDF viewer package and does not support text extraction.
-    // PDF text ingestion requires a dedicated extraction library.
-    // For now, throw an informative error so the user knows PDFs aren't
-    // supported for RAG ingestion yet (TXT and MD files work fine).
-    throw UnsupportedError(
-      'PDF text extraction is not yet supported. '
-      'Please convert your PDF to a .txt file first.',
-    );
-  }
-
   // ── Confirm-delete dialog ─────────────────────────────────────────────────
 
   Future<void> _confirmDelete(String sourceFile) async {
     final rag = context.read<RagService>();
+    final loc = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(sourceFile),
-        content: const Text(
-            'Remove all chunks for this file from the index?'),
+        content: Text(loc.docsDeleteConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppLocalizations.of(context).buttonCancel),
+            child: Text(loc.buttonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remove'),
+            child: Text(loc.docsDeleteAction),
           ),
         ],
       ),
@@ -234,7 +171,6 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                // Disable if embedding model absent or currently ingesting
                 onPressed: (embedSvc.isLoaded && !rag.isIngesting)
                     ? _importDocument
                     : null,
@@ -269,74 +205,132 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     );
   }
 
-  Widget _buildEmbedBanner(
-      AppLocalizations loc, EmbeddingService embedSvc) {
-    if (_isEmbedDownloading || _embedProgress != null) {
-      return Card(
-        color: Theme.of(context).colorScheme.secondaryContainer,
-        margin: const EdgeInsets.only(bottom: 16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                EmbeddingService.defaultFilename,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(value: _embedProgress),
-              const SizedBox(height: 4),
-              Text(
-                _embedStatus ?? '',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  Widget _buildEmbedBanner(AppLocalizations loc, EmbeddingService embedSvc) {
+    return FutureBuilder<ModelDownloadService>(
+      future: _getEmbedDownloader(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+        final dl = snap.data!;
+        return ListenableBuilder(
+          listenable: dl,
+          builder: (context, _) {
+            // Auto-load after download completes
+            if (dl.isDone && !embedSvc.isLoaded && !embedSvc.isLoading) {
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                if (mounted) {
+                  await context
+                      .read<EmbeddingService>()
+                      .loadModel(dl.destPath);
+                }
+              });
+            }
 
-    if (embedSvc.errorMessage != null) {
-      return Card(
-        color: Theme.of(context).colorScheme.errorContainer,
-        margin: const EdgeInsets.only(bottom: 16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            embedSvc.errorMessage!,
-            style: TextStyle(
-                color: Theme.of(context).colorScheme.onErrorContainer),
-          ),
-        ),
-      );
-    }
-
-    return Card(
-      color: Theme.of(context).colorScheme.tertiaryContainer,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: Theme.of(context).colorScheme.onTertiaryContainer,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                loc.docsNoEmbedWarning,
-                style: TextStyle(
-                  color:
-                      Theme.of(context).colorScheme.onTertiaryContainer,
+            if (dl.status == DownloadStatus.downloading ||
+                dl.status == DownloadStatus.paused) {
+              return _EmbedDownloadCard(dl: dl, loc: loc);
+            }
+            if (dl.isDone) return const SizedBox.shrink();
+            if (embedSvc.errorMessage != null) {
+              return Card(
+                color: Theme.of(context).colorScheme.errorContainer,
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(embedSvc.errorMessage!,
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onErrorContainer)),
+                ),
+              );
+            }
+            // Idle banner
+            return Card(
+              color: Theme.of(context).colorScheme.tertiaryContainer,
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onTertiaryContainer),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(loc.docsNoEmbedWarning,
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onTertiaryContainer)),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: dl.start,
+                      child: Text(loc.docsNoEmbedAction),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: _downloadEmbedModel,
-              child: Text(loc.docsNoEmbedAction),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// ── Embed download progress card ──────────────────────────────────────────────
+
+class _EmbedDownloadCard extends StatelessWidget {
+  final ModelDownloadService dl;
+  final AppLocalizations loc;
+  const _EmbedDownloadCard({required this.dl, required this.loc});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = dl.progress;
+    final receivedMb = dl.receivedBytes / 1e6;
+    final totalMb = dl.totalBytes / 1e6;
+    final pctStr = progress != null
+        ? '${(progress * 100).toStringAsFixed(1)}%'
+        : '…';
+    final sizeStr = totalMb > 0
+        ? '$pctStr — ${receivedMb.toStringAsFixed(0)} / ${totalMb.toStringAsFixed(0)} MB'
+        : '$pctStr — ${receivedMb.toStringAsFixed(0)} MB';
+
+    return Card(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(EmbeddingService.defaultFilename,
+                style: const TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: progress),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(sizeStr,
+                    style: Theme.of(context).textTheme.bodySmall),
+                if (dl.status == DownloadStatus.downloading)
+                  TextButton.icon(
+                    icon: const Icon(Icons.pause, size: 16),
+                    label: Text(loc.setupDownloadPause),
+                    onPressed: dl.pause,
+                  )
+                else
+                  TextButton.icon(
+                    icon: const Icon(Icons.play_arrow, size: 16),
+                    label: Text(loc.setupDownloadResume),
+                    onPressed: dl.start,
+                  ),
+              ],
             ),
           ],
         ),
@@ -365,10 +359,8 @@ class _StatsCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(
-              Icons.storage,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            Icon(Icons.storage,
+                color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,7 +370,7 @@ class _StatsCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 Text(
-                  '$totalSources ${totalSources == 1 ? "file" : "files"} · ${loc.docsIndexed}',
+                  '$totalSources ${loc.docsFiles(totalSources)} · ${loc.docsIndexed}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -401,30 +393,18 @@ class _SourceTile extends StatelessWidget {
 
   IconData _iconForFile(String name) {
     final ext = name.toLowerCase().split('.').last;
-    switch (ext) {
-      case 'pdf':
-        return Icons.picture_as_pdf_outlined;
-      case 'md':
-        return Icons.code_outlined;
-      default:
-        return Icons.text_snippet_outlined;
-    }
+    if (ext == 'md') return Icons.code_outlined;
+    return Icons.text_snippet_outlined;
   }
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(
-        _iconForFile(sourceFile),
-        color: Theme.of(context).colorScheme.primary,
-      ),
-      title: Text(
-        sourceFile,
-        overflow: TextOverflow.ellipsis,
-      ),
+      leading: Icon(_iconForFile(sourceFile),
+          color: Theme.of(context).colorScheme.primary),
+      title: Text(sourceFile, overflow: TextOverflow.ellipsis),
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),
-        tooltip: 'Remove from index',
         onPressed: onDelete,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 4),

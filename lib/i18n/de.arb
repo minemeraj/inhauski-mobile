@@ -13,18 +13,29 @@
   "chatNewSession": "Neues Gespräch",
   "chatEmptyTitle": "Bereit zum Chatten",
   "chatEmptySubtitle": "Ihre KI läuft lokal.\nKeine Daten verlassen Ihr Gerät.",
+  "chatError": "Fehler bei der Antwort",
+  "chatErrorDetail": "Fehler: {detail}",
+  "@chatErrorDetail": {
+    "placeholders": { "detail": { "type": "String" } }
+  },
 
   "docsImport": "Dokument importieren",
   "docsProcessing": "Verarbeite",
   "docsReady": "Dokument bereit",
   "docsChunks": "Abschnitte",
   "docsIndexed": "im lokalen Index",
-  "docsFormats": "Unterstützte Formate: PDF, TXT, Markdown",
+  "docsFormats": "Unterstützte Formate: TXT, Markdown",
   "docsClearIndex": "Index leeren",
   "docsClearIndexDone": "Dokumentenindex geleert.",
   "docsError": "Fehler",
   "docsNoEmbedWarning": "RAG deaktiviert — Einbettungsmodell nicht installiert.",
   "docsNoEmbedAction": "Jetzt herunterladen",
+  "docsDeleteConfirm": "Alle Abschnitte dieser Datei aus dem Index entfernen?",
+  "docsDeleteAction": "Entfernen",
+  "docsFiles": "{n,plural, =1{1 Datei} other{{n} Dateien}}",
+  "@docsFiles": {
+    "placeholders": { "n": { "type": "int" } }
+  },
 
   "setupWelcome": "Willkommen bei InHausKI",
   "setupTagline": "Ihre KI. Ihr Gerät. Kein Internet.",
@@ -45,7 +56,11 @@
   "setupEmbedHint": "Das Einbettungsmodell (~90 MB) ermöglicht die Dokumentensuche. Kann übersprungen werden — RAG-Funktion wird dann deaktiviert.",
   "setupEmbedSkip": "Überspringen",
 
-  "loadingModelMessage": "Lade Gemma 4 2B...",
+  "loadingModelMessage": "Lade KI-Modell...",
+  "loadingModelNamed": "Lade {name}...",
+  "@loadingModelNamed": {
+    "placeholders": { "name": { "type": "String" } }
+  },
   "loadingModelSubtitle": "Dies kann beim ersten Start einige Minuten dauern.",
 
   "settingsModel": "KI-Modell",

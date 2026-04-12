@@ -365,17 +365,29 @@ class _SetupWizardState extends State<SetupWizard> {
     await context.read<LlamaService>().completeSetup(
           modelPath: destPath,
           gpuMode: _selectedGpuMode,
+          modelName: _selectedChatModel.name,
         );
     if (mounted) setState(() => _step++);
   }
 
   Future<void> _onEmbedDownloadDone(String destPath) async {
-    await context.read<EmbeddingService>().loadModel(destPath);
+    // Pass the user's chosen GPU mode so embedding also respects it
+    await context.read<EmbeddingService>().loadModel(
+          destPath,
+          gpuMode: _selectedGpuMode,
+        );
     _finishSetup();
   }
 
+  /// Advance to the main shell. LlamaService.isSetupComplete must already be
+  /// true at this point (set by completeSetup in Step 2). The Consumer2 in
+  /// main.dart will switch home: to LoadingScreen / MainShell automatically.
+  /// We just need to ensure the wizard doesn't block that transition.
   void _finishSetup() {
-    // LlamaService.isSetupComplete is true → main.dart Consumer switches view.
+    // The Consumer2 in main.dart rebuilds home: when isSetupComplete flips.
+    // Nothing to do here — the wizard is replaced automatically.
+    // (This method intentionally left as a no-op comment anchor so callers
+    //  are explicit about the intent.)
   }
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -391,6 +403,7 @@ class _SetupWizardState extends State<SetupWizard> {
       _buildEmbedDownload(loc),
     ];
 
+    // Bottom forward button logic
     Widget? bottomButton;
     if (_step == 0) {
       bottomButton = FilledButton(
@@ -403,7 +416,7 @@ class _SetupWizardState extends State<SetupWizard> {
         child: Text(loc.setupContinue),
       );
     }
-    // Steps 2 and 3: navigation is driven by the download completion buttons.
+    // Steps 2 and 3: navigation driven by download completion buttons.
 
     return Scaffold(
       body: SafeArea(
@@ -412,23 +425,51 @@ class _SetupWizardState extends State<SetupWizard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Progress indicators
+              // ── Progress bar + back button row ─────────────────────────
               Row(
-                children: List.generate(
-                  _totalSteps,
-                  (i) => Expanded(
-                    child: Container(
-                      height: 4,
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      decoration: BoxDecoration(
-                        color: i <= _step
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.surfaceVariant,
-                        borderRadius: BorderRadius.circular(2),
+                children: [
+                  // Back button — visible on steps 1+ (but not during active
+                  // downloads to prevent abandoning mid-download accidentally)
+                  if (_step > 0 && _step < 2)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: IconButton.outlined(
+                        icon: const Icon(Icons.arrow_back, size: 18),
+                        onPressed: () => setState(() => _step--),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 32, minHeight: 32),
+                      ),
+                    ),
+                  // Step indicators — show only the current step filled
+                  Expanded(
+                    child: Row(
+                      children: List.generate(
+                        _totalSteps,
+                        (i) => Expanded(
+                          child: Container(
+                            height: 4,
+                            margin:
+                                const EdgeInsets.symmetric(horizontal: 2),
+                            decoration: BoxDecoration(
+                              color: i < _step
+                                  ? Theme.of(context).colorScheme.primary
+                                  : i == _step
+                                      ? Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withOpacity(0.5)
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .surfaceVariant,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
               const SizedBox(height: 32),
 

@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -5,17 +6,72 @@ import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'llama_service.dart' show GpuMode;
+
 const _kEmbedPathKey = 'inhauski_embed_model_path';
+
+// ── Background isolate helpers ────────────────────────────────────────────────
+
+/// Message sent TO the embedding isolate.
+class _EmbedRequest {
+  final String text;
+  final SendPort replyTo;
+  const _EmbedRequest(this.text, this.replyTo);
+}
+
+/// Message sent FROM the embedding isolate back to the main isolate.
+class _EmbedReply {
+  final List<double>? vector;
+  final String? error;
+  const _EmbedReply({this.vector, this.error});
+}
+
+/// Top-level isolate entry point — must be a top-level or static function.
+void _embeddingIsolateMain(_IsolateBootstrap bootstrap) {
+  final llama = Llama(
+    bootstrap.modelPath,
+    modelParams: ModelParams()..nGpuLayers = bootstrap.nGpuLayers,
+    contextParams: ContextParams()
+      ..nCtx = 512
+      ..nBatch = 512
+      ..nThreads = 1
+      ..embeddings = true,
+  );
+
+  final port = ReceivePort();
+  bootstrap.readyPort.send(port.sendPort);
+
+  port.listen((dynamic msg) {
+    if (msg is _EmbedRequest) {
+      try {
+        // llama.cpp normalises internally; we do NOT normalise again.
+        final vec = llama.getEmbeddings(msg.text, normalize: true);
+        msg.replyTo.send(_EmbedReply(vector: vec));
+      } catch (e) {
+        msg.replyTo.send(_EmbedReply(error: e.toString()));
+      }
+    } else if (msg == null) {
+      // Shutdown signal
+      llama.dispose();
+      port.close();
+    }
+  });
+}
+
+class _IsolateBootstrap {
+  final String modelPath;
+  final int nGpuLayers;
+  final SendPort readyPort;
+  const _IsolateBootstrap(this.modelPath, this.nGpuLayers, this.readyPort);
+}
+
+// ── EmbeddingService ──────────────────────────────────────────────────────────
 
 /// EmbeddingService manages a dedicated llama.cpp instance loaded with an
 /// embedding-optimised GGUF (multilingual-e5-small, ~90 MB, 384 dims).
 ///
-/// Uses [Llama.getEmbeddings] from llama_cpp_dart, which runs the model in
-/// embedding mode and returns a normalised float32 vector.
-///
-/// Keeping the embedding model separate from the chat model means:
-///   • The chat model context is never polluted by embedding mode.
-///   • The embedding model can be swapped without touching chat settings.
+/// The model runs in a **background isolate** so embedding never blocks the
+/// Flutter UI thread.  Respects the user's [GpuMode] preference.
 class EmbeddingService extends ChangeNotifier {
   static const int embeddingDimension = 384;
 
@@ -24,7 +80,9 @@ class EmbeddingService extends ChangeNotifier {
   String? _modelPath;
   String? _errorMessage;
 
-  Llama? _llama;
+  // Background isolate state
+  Isolate? _isolate;
+  SendPort? _isolateSendPort;
 
   bool get isLoaded => _isLoaded;
   bool get isLoading => _isLoading;
@@ -39,12 +97,14 @@ class EmbeddingService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString(_kEmbedPathKey);
     if (path != null && await File(path).exists()) {
-      await loadModel(path);
+      // Default to auto (try GPU) on auto-load; user can change in Settings.
+      await loadModel(path, gpuMode: GpuMode.auto);
     }
   }
 
   /// Load the embedding GGUF at [path] and persist the path for future starts.
-  Future<void> loadModel(String path) async {
+  /// Respects [gpuMode]: cpu → nGpuLayers=0, otherwise → 99.
+  Future<void> loadModel(String path, {GpuMode gpuMode = GpuMode.auto}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -55,23 +115,22 @@ class EmbeddingService extends ChangeNotifier {
         throw Exception('Embedding model not found: $path');
       }
 
-      // Dispose previous instance if any
-      _llama?.dispose();
-      _llama = null;
+      // Shut down previous isolate if any
+      await _shutdownIsolate();
 
-      // Embedding models benefit from all layers on GPU (small model).
-      // nCtx = 512 matches e5-small max sequence length.
-      _llama = Llama(
-        path,
-        modelParams: ModelParams()..nGpuLayers = 99,
-        contextParams: ContextParams()
-          ..nCtx = 512
-          ..nBatch = 512
-          ..nThreads = 1
-          ..embeddings = true, // enable embedding mode in llama.cpp context
+      final nGpuLayers = gpuMode == GpuMode.cpu ? 0 : 99;
+
+      // Boot the embedding isolate
+      final readyPort = ReceivePort();
+      _isolate = await Isolate.spawn(
+        _embeddingIsolateMain,
+        _IsolateBootstrap(path, nGpuLayers, readyPort.sendPort),
+        debugName: 'embedding_isolate',
       );
 
-      debugPrint('[EmbeddingService] Loading: $path');
+      // Wait for the isolate to signal readiness and hand us its SendPort
+      _isolateSendPort = await readyPort.first as SendPort;
+      readyPort.close();
 
       _modelPath = path;
       _isLoaded = true;
@@ -80,11 +139,12 @@ class EmbeddingService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kEmbedPathKey, path);
 
-      debugPrint('[EmbeddingService] Ready (dim=$embeddingDimension)');
+      debugPrint('[EmbeddingService] Ready (dim=$embeddingDimension, ngl=$nGpuLayers)');
       notifyListeners();
     } catch (e) {
       _errorMessage = 'Embedding model load error: $e';
       _isLoading = false;
+      _isLoaded = false;
       debugPrint('[EmbeddingService] Error: $_errorMessage');
       notifyListeners();
       rethrow;
@@ -92,32 +152,38 @@ class EmbeddingService extends ChangeNotifier {
   }
 
   /// Embed [text] and return a 384-dim L2-normalised float vector.
+  ///
+  /// Runs in the background isolate — never blocks the UI thread.
   Future<List<double>> embed(String text) async {
-    if (!_isLoaded || _llama == null) {
+    if (!_isLoaded || _isolateSendPort == null) {
       throw StateError('Embedding model not loaded');
     }
-    // getEmbeddings runs synchronously in the calling isolate; it is fast
-    // (~5 ms for 384-dim e5-small) so running it on the main isolate is fine.
-    // normalize: true → llama.cpp normalises the vector to unit length.
-    final vec = _llama!.getEmbeddings(text, normalize: true);
-    return _l2Normalize(vec);
+    final replyPort = ReceivePort();
+    _isolateSendPort!.send(_EmbedRequest(text, replyPort.sendPort));
+    final reply = await replyPort.first as _EmbedReply;
+    replyPort.close();
+    if (reply.error != null) throw Exception(reply.error);
+    return reply.vector!;
   }
 
-  List<double> _l2Normalize(List<double> v) {
-    final sumSq = v.fold(0.0, (double s, x) => s + x * x);
-    if (sumSq == 0) return v;
-    final invNorm = 1.0 / sqrt(sumSq);
-    return v.map((x) => x * invNorm).toList();
+  /// Shut down the background isolate gracefully.
+  Future<void> _shutdownIsolate() async {
+    if (_isolateSendPort != null) {
+      _isolateSendPort!.send(null); // shutdown signal
+      _isolateSendPort = null;
+    }
+    _isolate?.kill(priority: Isolate.immediate);
+    _isolate = null;
   }
 
   /// Remove the persisted path (called from resetSetup).
   Future<void> reset() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kEmbedPathKey);
-    _llama?.dispose();
-    _llama = null;
+    await _shutdownIsolate();
     _isLoaded = false;
     _modelPath = null;
+    _errorMessage = null;
     notifyListeners();
   }
 
@@ -139,7 +205,7 @@ class EmbeddingService extends ChangeNotifier {
 
   @override
   void dispose() {
-    _llama?.dispose();
+    _shutdownIsolate();
     super.dispose();
   }
 }

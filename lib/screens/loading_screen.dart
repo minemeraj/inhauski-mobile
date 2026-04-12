@@ -24,7 +24,7 @@ class LoadingScreen extends StatelessWidget {
               children: [
                 // Logo / Icon
                 Icon(
-                  Icons.lock,
+                  Icons.smart_toy_outlined,
                   size: 80,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -67,9 +67,12 @@ class LoadingScreen extends StatelessWidget {
                   ),
                 const SizedBox(height: 32),
 
-                // Status message
+                // Status message — show model name if known, else generic message
                 Text(
-                  llama.errorMessage ?? loc.loadingModelMessage,
+                  llama.errorMessage ??
+                      (llama.modelName != null
+                          ? loc.loadingModelNamed(llama.modelName!)
+                          : loc.loadingModelMessage),
                   style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),

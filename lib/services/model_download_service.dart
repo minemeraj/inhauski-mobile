@@ -98,14 +98,16 @@ class ModelDownloadService extends ChangeNotifier {
 
   /// Pause the active download. The `.part` file is kept on disk so
   /// [start] can resume from the current byte offset.
-  void pause() {
+  Future<void> pause() async {
     if (_status != DownloadStatus.downloading) return;
     _status = DownloadStatus.paused;
     _subscription?.cancel();
     _subscription = null;
-    _sink?.flush();
-    _sink?.close();
-    _sink = null;
+    if (_sink != null) {
+      await _sink!.flush();
+      await _sink!.close();
+      _sink = null;
+    }
     _client?.close();
     _client = null;
     notifyListeners();
@@ -113,7 +115,8 @@ class ModelDownloadService extends ChangeNotifier {
 
   @override
   void dispose() {
-    pause(); // clean up active resources
+    // Fire-and-forget async flush; resources will be GC'd regardless.
+    pause().catchError((_) {});
     super.dispose();
   }
 
@@ -200,8 +203,14 @@ class ModelDownloadService extends ChangeNotifier {
   }
 
   Future<void> _finalize(File partFile) async {
-    // Atomic rename: part file → final destination.
-    await partFile.rename(destPath);
+    // Prefer atomic rename; fall back to copy+delete for cross-filesystem moves
+    // (e.g. temp dir on a different volume than the app data dir on Android).
+    try {
+      await partFile.rename(destPath);
+    } catch (_) {
+      await partFile.copy(destPath);
+      await partFile.delete();
+    }
     _status = DownloadStatus.done;
     _received = _total > 0 ? _total : _received;
     debugPrint('[ModelDownloadService] Download complete: $destPath');

@@ -25,6 +25,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final llama = context.read<LlamaService>();
     final rag = context.read<RagService>();
     final history = context.read<ChatHistory>();
+    final loc = AppLocalizations.of(context);
 
     _controller.clear();
 
@@ -64,13 +65,13 @@ class _ChatScreenState extends State<ChatScreen> {
         },
       );
     } catch (e) {
-      // Replace the empty placeholder with an error notice so the bubble
-      // doesn't stay blank/spinning indefinitely.
-      await history.updateLastAssistantMessage('[Error: $e]');
+      // Show a user-friendly error in the bubble, not the raw exception.
+      final friendlyError = '[${loc.chatError}]';
+      await history.updateLastAssistantMessage(friendlyError);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$e'),
+            content: Text(loc.chatErrorDetail('$e')),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -78,9 +79,15 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _stop() {
+    context.read<LlamaService>().stopInference();
+  }
+
   void _scrollToBottom() {
+    // Throttle: only schedule one scroll callback per frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (_scrollController.hasClients &&
+          _scrollController.position.hasContentDimensions) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 150),
@@ -98,18 +105,20 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('InHausKI'),
+        title: const Text('InHausKI'),
         actions: [
-          // GPU status badge
+          // GPU / CPU status badge — reflects actual runtime mode
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: 4),
             child: _GpuBadge(gpuMode: llama.gpuMode),
           ),
           // New chat button
           IconButton(
             icon: const Icon(Icons.add_comment_outlined),
             tooltip: loc.chatNewSession,
-            onPressed: () => context.read<ChatHistory>().clearSession(),
+            onPressed: llama.isInferring
+                ? null
+                : () => context.read<ChatHistory>().clearSession(),
           ),
         ],
       ),
@@ -142,10 +151,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       controller: _controller,
                       enabled: llama.isModelLoaded && !llama.isInferring,
                       maxLines: null,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
+                      maxLength: 4000,
+                      textInputAction: TextInputAction.newline,
                       decoration: InputDecoration(
                         hintText: loc.chatPlaceholder,
+                        counterText: '', // hide character counter
                         filled: true,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
@@ -159,17 +169,22 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  FloatingActionButton.small(
-                    onPressed:
-                        llama.isModelLoaded && !llama.isInferring ? _send : null,
-                    child: llama.isInferring
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
-                  ),
+                  // Stop button while inferring, send button otherwise
+                  if (llama.isInferring)
+                    FloatingActionButton.small(
+                      onPressed: _stop,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.errorContainer,
+                      child: Icon(Icons.stop,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onErrorContainer),
+                    )
+                  else
+                    FloatingActionButton.small(
+                      onPressed: llama.isModelLoaded ? _send : null,
+                      child: const Icon(Icons.send),
+                    ),
                 ],
               ),
             ),
@@ -188,15 +203,16 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUser = message.role == MessageRole.user;
     final colorScheme = Theme.of(context).colorScheme;
+    // Cap bubble width: 78% on phones, 480 px on tablets
+    final maxW = MediaQuery.of(context).size.width * 0.78;
+    final bubbleMax = maxW > 480 ? 480.0 : maxW;
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
-        ),
+        constraints: BoxConstraints(maxWidth: bubbleMax),
         decoration: BoxDecoration(
           color: isUser
               ? colorScheme.primaryContainer
@@ -233,7 +249,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.lock_outline,
+            Icons.smart_toy_outlined,
             size: 64,
             color: Theme.of(context).colorScheme.outline,
           ),
@@ -254,6 +270,8 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+/// GPU badge — shows "GPU" only when GPU offload is actually enabled,
+/// "CPU" when the user selected CPU mode or GPU is unavailable.
 class _GpuBadge extends StatelessWidget {
   final GpuMode gpuMode;
   const _GpuBadge({required this.gpuMode});

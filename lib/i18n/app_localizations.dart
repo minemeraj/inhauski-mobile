@@ -44,6 +44,8 @@ abstract class AppLocalizations {
   String get chatNewSession;
   String get chatEmptyTitle;
   String get chatEmptySubtitle;
+  String get chatError;
+  String chatErrorDetail(String detail);
 
   // Documents
   String get docsImport;
@@ -57,6 +59,9 @@ abstract class AppLocalizations {
   String get docsError;
   String get docsNoEmbedWarning;
   String get docsNoEmbedAction;
+  String get docsDeleteConfirm;
+  String get docsDeleteAction;
+  String docsFiles(int n);
 
   // Setup
   String get setupWelcome;
@@ -81,6 +86,7 @@ abstract class AppLocalizations {
   // App / Loading
   String get appSubtitle;
   String get loadingModelMessage;
+  String loadingModelNamed(String name);
   String get loadingModelSubtitle;
   String get buttonRetry;
 
@@ -120,18 +126,23 @@ class _AppLocalizationsDe extends AppLocalizations {
   @override String get chatEmptyTitle => 'Bereit zum Chatten';
   @override String get chatEmptySubtitle =>
       'Ihre KI läuft lokal.\nKeine Daten verlassen Ihr Gerät.';
+  @override String get chatError => 'Fehler bei der Antwort';
+  @override String chatErrorDetail(String detail) => 'Fehler: $detail';
   @override String get docsImport => 'Dokument importieren';
   @override String get docsProcessing => 'Verarbeite';
   @override String get docsReady => 'Dokument bereit';
   @override String get docsChunks => 'Abschnitte';
   @override String get docsIndexed => 'im lokalen Index';
-  @override String get docsFormats => 'Unterstützte Formate: PDF, TXT, Markdown';
+  @override String get docsFormats => 'Unterstützte Formate: TXT, Markdown';
   @override String get docsClearIndex => 'Index leeren';
   @override String get docsClearIndexDone => 'Dokumentenindex geleert.';
   @override String get docsError => 'Fehler';
   @override String get docsNoEmbedWarning =>
       'RAG deaktiviert — Einbettungsmodell nicht installiert.';
   @override String get docsNoEmbedAction => 'Jetzt herunterladen';
+  @override String get docsDeleteConfirm => 'Alle Abschnitte dieser Datei aus dem Index entfernen?';
+  @override String get docsDeleteAction => 'Entfernen';
+  @override String docsFiles(int n) => n == 1 ? '1 Datei' : '$n Dateien';
   @override String get setupWelcome => 'Willkommen bei InHausKI';
   @override String get setupTagline => 'Ihre KI. Ihr Gerät. Kein Internet.';
   @override String get setupLanguageLabel => 'Sprache / Language';
@@ -151,7 +162,8 @@ class _AppLocalizationsDe extends AppLocalizations {
   @override String get setupEmbedHint => 'Das Einbettungsmodell (~90 MB) ermöglicht die Dokumentensuche. Kann übersprungen werden — RAG-Funktion wird dann deaktiviert.';
   @override String get setupEmbedSkip => 'Überspringen';
   @override String get appSubtitle => 'Offline KI-Assistent';
-  @override String get loadingModelMessage => 'Lade Gemma 4 2B...';
+  @override String get loadingModelMessage => 'Lade KI-Modell...';
+  @override String loadingModelNamed(String name) => 'Lade $name...';
   @override String get loadingModelSubtitle => 'Dies kann beim ersten Start einige Minuten dauern.';
   @override String get buttonRetry => 'Erneut versuchen';
   @override String get settingsModel => 'KI-Modell';
@@ -189,18 +201,23 @@ class _AppLocalizationsEn extends AppLocalizations {
   @override String get chatEmptyTitle => 'Ready to chat';
   @override String get chatEmptySubtitle =>
       'Your AI runs locally.\nNo data ever leaves your device.';
+  @override String get chatError => 'Response error';
+  @override String chatErrorDetail(String detail) => 'Error: $detail';
   @override String get docsImport => 'Import document';
   @override String get docsProcessing => 'Processing';
   @override String get docsReady => 'Document ready';
   @override String get docsChunks => 'chunks';
   @override String get docsIndexed => 'in local index';
-  @override String get docsFormats => 'Supported formats: PDF, TXT, Markdown';
+  @override String get docsFormats => 'Supported formats: TXT, Markdown';
   @override String get docsClearIndex => 'Clear index';
   @override String get docsClearIndexDone => 'Document index cleared.';
   @override String get docsError => 'Error';
   @override String get docsNoEmbedWarning =>
       'RAG disabled — embedding model not installed.';
   @override String get docsNoEmbedAction => 'Download now';
+  @override String get docsDeleteConfirm => 'Remove all chunks of this file from the index?';
+  @override String get docsDeleteAction => 'Remove';
+  @override String docsFiles(int n) => n == 1 ? '1 file' : '$n files';
   @override String get setupWelcome => 'Welcome to InHausKI';
   @override String get setupTagline => 'Your AI. Your device. No internet.';
   @override String get setupLanguageLabel => 'Language';
@@ -220,7 +237,8 @@ class _AppLocalizationsEn extends AppLocalizations {
   @override String get setupEmbedHint => 'The embedding model (~90 MB) enables document search. You can skip this — RAG will be disabled until it is downloaded.';
   @override String get setupEmbedSkip => 'Skip for now';
   @override String get appSubtitle => 'Offline AI Assistant';
-  @override String get loadingModelMessage => 'Loading Gemma 4 2B...';
+  @override String get loadingModelMessage => 'Loading AI model...';
+  @override String loadingModelNamed(String name) => 'Loading $name...';
   @override String get loadingModelSubtitle => 'This may take a few minutes on first run.';
   @override String get buttonRetry => 'Retry';
   @override String get settingsModel => 'AI Model';
