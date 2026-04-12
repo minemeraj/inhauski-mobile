@@ -64,8 +64,11 @@ jobs:
           # ── AndroidManifest.xml fixups ────────────────────────────────────
           MANIFEST=android/app/src/main/AndroidManifest.xml
           if [ -f "$MANIFEST" ]; then
-            grep -q 'android.permission.INTERNET' "$MANIFEST" || \
-              sed -i 's|<manifest |<manifest \n    <uses-permission android:name="android.permission.INTERNET"/>\n    |' "$MANIFEST"
+            # Add INTERNET permission if not already present
+            if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
+              sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
+            fi
+            # Set largeHeap="true" on <application> tag
             sed -i 's|android:label="|android:largeHeap="true" android:label="|' "$MANIFEST"
           fi
 
