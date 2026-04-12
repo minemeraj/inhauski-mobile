@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android
 
 # Trigger on every push to master and on pull requests.
 # You can also trigger manually from the GitHub Actions tab.
@@ -10,8 +10,8 @@ on:
   workflow_dispatch:   # manual trigger button in GitHub UI
 
 jobs:
-  build-apk:
-    name: Build debug APK
+  build-android:
+    name: Build Android (debug APK + release AAB)
     runs-on: ubuntu-latest
 
     steps:
@@ -48,25 +48,90 @@ jobs:
             --no-pub
         working-directory: ${{ github.workspace }}
 
-      # ── 5. Set minSdkVersion = 21 ─────────────────────────────────────────
-      # objectbox_flutter_libs and llama_cpp_dart both require minSdk 21.
-      # flutter create defaults to 21 since Flutter 3.19, but we enforce it
-      # explicitly to be safe.
-      # Also remove the stub widget_test.dart flutter create generates —
-      # we have our own tests in test/.
-      - name: Post-create fixups
+      # ── 5. Android manifest + build config fixups ─────────────────────────
+      # - minSdk 21  (objectbox + llama_cpp_dart requirement)
+      # - targetSdk 35  (Google Play requirement as of Aug 2025)
+      # - applicationId  com.inhauski.app
+      # - versionCode / versionName driven by pubspec version
+      # - largeHeap true  (2.9 GB model needs heap headroom)
+      # - INTERNET permission  (model download)
+      # - Remove stub widget_test.dart
+      - name: Post-create fixups (SDK versions, manifest, signing config)
         run: |
-          # Flutter 3.22+ generates Kotlin DSL (build.gradle.kts).
-          # The minSdk line looks like: minSdk = flutter.minSdkVersion
-          # Replace it with a hard 21 so objectbox + llama_cpp_dart work.
-          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/' \
-            android/app/build.gradle.kts || true
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' \
-            android/app/build.gradle || true
-          # Remove stub widget_test.dart that flutter create generates —
-          # we have our own unit tests in test/.
+          # ── build.gradle.kts (Kotlin DSL, Flutter 3.22+) ──────────────────
+          if [ -f android/app/build.gradle.kts ]; then
+            # minSdk
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/' android/app/build.gradle.kts
+            # targetSdk → 35
+            sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 35/' android/app/build.gradle.kts
+            # applicationId
+            sed -i 's/applicationId = "com.inhauski.inhauski"/applicationId = "com.inhauski.app"/' android/app/build.gradle.kts
+
+            # Inject signingConfigs + release buildType if keystore secret is present
+            if [ -n "$KEYSTORE_BASE64" ]; then
+              echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+              # Insert signingConfigs block before the android { block's closing brace
+              # We append a release signing block at the end of the android {} closure.
+              cat >> android/app/build.gradle.kts << 'KOTLIN_SIGNING'
+
+android.signingConfigs.create("release") {
+    storeFile = file("keystore.jks")
+    storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+    keyAlias = System.getenv("KEY_ALIAS") ?: ""
+    keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+}
+android.buildTypes.getByName("release").signingConfig =
+    android.signingConfigs.getByName("release")
+KOTLIN_SIGNING
+            fi
+          fi
+
+          # ── build.gradle (Groovy DSL, older Flutter) ──────────────────────
+          if [ -f android/app/build.gradle ]; then
+            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' android/app/build.gradle
+            sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 35/' android/app/build.gradle
+            sed -i 's/applicationId "com.inhauski.inhauski"/applicationId "com.inhauski.app"/' android/app/build.gradle
+
+            if [ -n "$KEYSTORE_BASE64" ]; then
+              echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+              cat >> android/app/build.gradle << 'GROOVY_SIGNING'
+
+android {
+    signingConfigs {
+        release {
+            storeFile file("keystore.jks")
+            storePassword System.getenv("KEYSTORE_PASSWORD")
+            keyAlias System.getenv("KEY_ALIAS")
+            keyPassword System.getenv("KEY_PASSWORD")
+        }
+    }
+    buildTypes {
+        release { signingConfig signingConfigs.release }
+    }
+}
+GROOVY_SIGNING
+            fi
+          fi
+
+          # ── AndroidManifest.xml fixups ────────────────────────────────────
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if [ -f "$MANIFEST" ]; then
+            # Add INTERNET permission if not present
+            grep -q 'android.permission.INTERNET' "$MANIFEST" || \
+              sed -i 's|<manifest |<manifest \n    <uses-permission android:name="android.permission.INTERNET"/>\n    |' "$MANIFEST"
+
+            # Set largeHeap="true" on <application> tag
+            sed -i 's|android:label="|android:largeHeap="true" android:label="|' "$MANIFEST"
+          fi
+
+          # ── Remove stub widget_test.dart ──────────────────────────────────
           rm -f test/widget_test.dart
         working-directory: ${{ github.workspace }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       # ── 6. Install pub dependencies ───────────────────────────────────────
       - name: flutter pub get
@@ -74,11 +139,6 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       # ── 7. Regenerate ObjectBox + drift code ──────────────────────────────
-      # Delete the committed stubs first — they use the ObjectBox 4.x internal
-      # API (ModelDefinition, ModelEntity, ModelProperty, IdUid, etc.) which
-      # no longer exists in ObjectBox 5.x. build_runner will regenerate them
-      # from scratch using the correct 5.x API.
-      # Also create the assets/models/ directory declared in pubspec.yaml.
       - name: Remove stale generated stubs + create asset dirs
         run: |
           rm -f lib/objectbox.g.dart
@@ -88,33 +148,46 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Generate code (build_runner)
-        run: |
-          dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build --delete-conflicting-outputs
         working-directory: ${{ github.workspace }}
 
       # ── 8. Run unit tests ─────────────────────────────────────────────────
-      # Only run chat_history_test.dart — it uses drift in-memory and has
-      # no native dependencies. The other test files (rag_service_test.dart,
-      # embedding_service_test.dart) import EmbeddingService which references
-      # llama_cpp_dart (native FFI); the Linux runner cannot load the .so.
       - name: flutter test
         run: flutter test test/chat_history_test.dart --reporter compact
         working-directory: ${{ github.workspace }}
 
-      # ── 9. Build debug APK ────────────────────────────────────────────────
-      # Debug build: no signing required, installs directly via adb.
-      # Release build requires a keystore secret — add later for Play Store.
+      # ── 9. Build debug APK (always — for quick sideload testing) ─────────
       - name: Build debug APK
         run: flutter build apk --debug --verbose
         working-directory: ${{ github.workspace }}
 
-      # ── 10. Upload APK as build artifact ─────────────────────────────────
-      # After the workflow completes, go to the Actions tab on GitHub,
-      # click the run, scroll to "Artifacts", download app-debug.zip,
-      # extract → app-debug.apk → install on your Android device.
-      - name: Upload APK artifact
+      - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
-          retention-days: 14   # keep artifact for 14 days
+          retention-days: 14
+
+      # ── 10. Build release AAB (only when keystore secrets are present) ────
+      # To enable: add KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS,
+      # KEY_PASSWORD as GitHub Actions repository secrets.
+      # See docs/PLAY_STORE_SETUP.md for how to generate the keystore.
+      - name: Build release AAB (Play Store)
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        run: flutter build appbundle --release --verbose
+        working-directory: ${{ github.workspace }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload release AAB artifact
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}

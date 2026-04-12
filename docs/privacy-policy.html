@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InHausKI – Privacy Policy</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      max-width: 760px;
+      margin: 40px auto;
+      padding: 0 20px;
+      color: #222;
+      line-height: 1.7;
+    }
+    h1 { font-size: 1.8em; margin-bottom: 4px; }
+    h2 { font-size: 1.15em; margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+    p, li { font-size: 0.97em; }
+    .badge {
+      display: inline-block;
+      background: #e8f5e9;
+      color: #1b5e20;
+      border-radius: 4px;
+      padding: 2px 10px;
+      font-size: 0.85em;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    footer { margin-top: 48px; font-size: 0.82em; color: #888; }
+  </style>
+</head>
+<body>
+
+<h1>InHausKI – Privacy Policy</h1>
+<span class="badge">100% Offline &nbsp;·&nbsp; No data collection</span>
+
+<p><strong>Effective date:</strong> April 12, 2026<br>
+<strong>App:</strong> InHausKI – Offline AI Chat<br>
+<strong>Developer:</strong> InHausKI</p>
+
+<h2>1. Overview</h2>
+<p>
+  InHausKI is an offline artificial-intelligence chat application.
+  All AI processing, document storage, and chat history are handled
+  <strong>entirely on your device</strong>. No personal data, no chat messages,
+  and no documents ever leave your device.
+</p>
+
+<h2>2. Data We Do NOT Collect</h2>
+<ul>
+  <li>We do <strong>not</strong> collect any personal information.</li>
+  <li>We do <strong>not</strong> transmit chat messages, documents, or queries to any server.</li>
+  <li>We do <strong>not</strong> use analytics, crash-reporting SDKs, or advertising SDKs.</li>
+  <li>We do <strong>not</strong> create user accounts or profiles.</li>
+  <li>We do <strong>not</strong> share any data with third parties.</li>
+</ul>
+
+<h2>3. Network Access</h2>
+<p>
+  InHausKI requires a one-time internet connection <strong>only</strong> during
+  initial setup to download the AI model file (~2.9 GB) and optionally the
+  embedding model (~90 MB) from Hugging Face
+  (<a href="https://huggingface.co">huggingface.co</a>).
+  After setup, the app operates fully offline.
+  The download URL is the only external endpoint the app ever contacts.
+  No user data is included in this request.
+</p>
+
+<h2>4. Data Stored on Your Device</h2>
+<p>The following data is stored <strong>locally on your device only</strong>:</p>
+<ul>
+  <li><strong>AI model files</strong> – the downloaded GGUF model files stored in
+      the app's private storage directory.</li>
+  <li><strong>Chat history</strong> – your conversation messages, stored in a local
+      SQLite database inside the app's private storage. This data is never synced
+      or backed up to the cloud.</li>
+  <li><strong>Document index</strong> – text chunks from documents you import,
+      stored in a local vector database (ObjectBox) inside the app's private
+      storage.</li>
+  <li><strong>App settings</strong> – preferences such as language and GPU mode,
+      stored via Android SharedPreferences.</li>
+</ul>
+<p>
+  You can delete all locally stored data at any time by clearing the app's
+  data in your device's Settings, or by using the "Reset setup" option within
+  the app.
+</p>
+
+<h2>5. Permissions</h2>
+<p>InHausKI requests only the following Android permissions:</p>
+<ul>
+  <li><strong>INTERNET</strong> – used solely for the one-time model download
+      described in Section 3.</li>
+</ul>
+<p>
+  No storage, camera, microphone, contacts, or location permissions are
+  requested or used.
+</p>
+
+<h2>6. Children's Privacy</h2>
+<p>
+  InHausKI does not target children under 13 (or under 16 in the EU). Since
+  no personal data is collected, COPPA/GDPR-K compliance is inherent. If you
+  are a parent or guardian and have concerns, please contact us.
+</p>
+
+<h2>7. GDPR / Data Subject Rights (EU Users)</h2>
+<p>
+  Because InHausKI does not collect or process any personal data on external
+  servers, there is no personal data held by the developer to which GDPR data
+  subject rights (access, rectification, erasure, portability) would apply.
+  All data resides exclusively on your own device and is under your full
+  control.
+</p>
+
+<h2>8. Changes to This Policy</h2>
+<p>
+  If a future version of InHausKI introduces data collection, this policy
+  will be updated before that version is published. The effective date at the
+  top of this page will reflect the most recent revision.
+</p>
+
+<h2>9. Contact</h2>
+<p>
+  If you have questions about this privacy policy, please open an issue on
+  the project's GitHub repository or contact the developer directly via the
+  support link on the Google Play store listing.
+</p>
+
+<footer>
+  &copy; 2026 InHausKI. This privacy policy is available at<br>
+  <a href="https://minemeraj.github.io/inhauski-mobile/privacy-policy.html">
+    https://minemeraj.github.io/inhauski-mobile/privacy-policy.html
+  </a>
+</footer>
+
+</body>
+</html>
