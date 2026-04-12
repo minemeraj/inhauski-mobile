@@ -32,12 +32,9 @@ jobs:
         with:
           flutter-version: "3.41.6"
           channel: stable
-          cache: true   # cache Flutter SDK between runs (~1 GB)
+          cache: true
 
       # ── 4. Generate android/ platform folder ─────────────────────────────
-      # The repo contains only lib/, test/, pubspec.yaml.
-      # flutter create . generates android/ (and ios/) without touching
-      # existing Dart source files.
       - name: Generate platform folders (flutter create)
         run: |
           flutter create . \
@@ -46,44 +43,15 @@ jobs:
             --platforms android \
             --no-overwrite \
             --no-pub
-        working-directory: ${{ github.workspace }}
 
-      # ── 5. Android manifest + build config fixups ─────────────────────────
-      # - minSdk 21  (objectbox + llama_cpp_dart requirement)
-      # - targetSdk 35  (Google Play requirement as of Aug 2025)
-      # - applicationId  com.inhauski.app
-      # - versionCode / versionName driven by pubspec version
-      # - largeHeap true  (2.9 GB model needs heap headroom)
-      # - INTERNET permission  (model download)
-      # - Remove stub widget_test.dart
-      - name: Post-create fixups (SDK versions, manifest, signing config)
+      # ── 5. Post-create fixups ─────────────────────────────────────────────
+      - name: Post-create fixups (SDK versions, manifest)
         run: |
           # ── build.gradle.kts (Kotlin DSL, Flutter 3.22+) ──────────────────
           if [ -f android/app/build.gradle.kts ]; then
-            # minSdk
             sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/' android/app/build.gradle.kts
-            # targetSdk → 35
             sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 35/' android/app/build.gradle.kts
-            # applicationId
             sed -i 's/applicationId = "com.inhauski.inhauski"/applicationId = "com.inhauski.app"/' android/app/build.gradle.kts
-
-            # Inject signingConfigs + release buildType if keystore secret is present
-            if [ -n "$KEYSTORE_BASE64" ]; then
-              echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
-              # Insert signingConfigs block before the android { block's closing brace
-              # We append a release signing block at the end of the android {} closure.
-              cat >> android/app/build.gradle.kts << 'KOTLIN_SIGNING'
-
-android.signingConfigs.create("release") {
-    storeFile = file("keystore.jks")
-    storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-    keyAlias = System.getenv("KEY_ALIAS") ?: ""
-    keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-}
-android.buildTypes.getByName("release").signingConfig =
-    android.signingConfigs.getByName("release")
-KOTLIN_SIGNING
-            fi
           fi
 
           # ── build.gradle (Groovy DSL, older Flutter) ──────────────────────
@@ -91,52 +59,60 @@ KOTLIN_SIGNING
             sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' android/app/build.gradle
             sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 35/' android/app/build.gradle
             sed -i 's/applicationId "com.inhauski.inhauski"/applicationId "com.inhauski.app"/' android/app/build.gradle
-
-            if [ -n "$KEYSTORE_BASE64" ]; then
-              echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
-              cat >> android/app/build.gradle << 'GROOVY_SIGNING'
-
-android {
-    signingConfigs {
-        release {
-            storeFile file("keystore.jks")
-            storePassword System.getenv("KEYSTORE_PASSWORD")
-            keyAlias System.getenv("KEY_ALIAS")
-            keyPassword System.getenv("KEY_PASSWORD")
-        }
-    }
-    buildTypes {
-        release { signingConfig signingConfigs.release }
-    }
-}
-GROOVY_SIGNING
-            fi
           fi
 
           # ── AndroidManifest.xml fixups ────────────────────────────────────
           MANIFEST=android/app/src/main/AndroidManifest.xml
           if [ -f "$MANIFEST" ]; then
-            # Add INTERNET permission if not present
             grep -q 'android.permission.INTERNET' "$MANIFEST" || \
               sed -i 's|<manifest |<manifest \n    <uses-permission android:name="android.permission.INTERNET"/>\n    |' "$MANIFEST"
-
-            # Set largeHeap="true" on <application> tag
             sed -i 's|android:label="|android:largeHeap="true" android:label="|' "$MANIFEST"
           fi
 
           # ── Remove stub widget_test.dart ──────────────────────────────────
           rm -f test/widget_test.dart
-        working-directory: ${{ github.workspace }}
+
+      # ── 5b. Inject signing config (only when keystore secrets are set) ────
+      - name: Inject signing config
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+
+          if [ -f android/app/build.gradle.kts ]; then
+            printf '\nandroid.signingConfigs.create("release") {\n' >> android/app/build.gradle.kts
+            printf '    storeFile = file("keystore.jks")\n' >> android/app/build.gradle.kts
+            printf '    storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""\n' >> android/app/build.gradle.kts
+            printf '    keyAlias = System.getenv("KEY_ALIAS") ?: ""\n' >> android/app/build.gradle.kts
+            printf '    keyPassword = System.getenv("KEY_PASSWORD") ?: ""\n' >> android/app/build.gradle.kts
+            printf '}\n' >> android/app/build.gradle.kts
+            printf 'android.buildTypes.getByName("release").signingConfig =\n' >> android/app/build.gradle.kts
+            printf '    android.signingConfigs.getByName("release")\n' >> android/app/build.gradle.kts
+          fi
+
+          if [ -f android/app/build.gradle ]; then
+            printf '\nandroid {\n' >> android/app/build.gradle
+            printf '    signingConfigs {\n' >> android/app/build.gradle
+            printf '        release {\n' >> android/app/build.gradle
+            printf '            storeFile file("keystore.jks")\n' >> android/app/build.gradle
+            printf '            storePassword System.getenv("KEYSTORE_PASSWORD")\n' >> android/app/build.gradle
+            printf '            keyAlias System.getenv("KEY_ALIAS")\n' >> android/app/build.gradle
+            printf '            keyPassword System.getenv("KEY_PASSWORD")\n' >> android/app/build.gradle
+            printf '        }\n' >> android/app/build.gradle
+            printf '    }\n' >> android/app/build.gradle
+            printf '    buildTypes {\n' >> android/app/build.gradle
+            printf '        release { signingConfig signingConfigs.release }\n' >> android/app/build.gradle
+            printf '    }\n' >> android/app/build.gradle
+            printf '}\n' >> android/app/build.gradle
+          fi
 
       # ── 6. Install pub dependencies ───────────────────────────────────────
       - name: flutter pub get
         run: flutter pub get
-        working-directory: ${{ github.workspace }}
 
       # ── 7. Regenerate ObjectBox + drift code ──────────────────────────────
       - name: Remove stale generated stubs + create asset dirs
@@ -145,21 +121,17 @@ GROOVY_SIGNING
           rm -f lib/storage/objectbox.g.dart
           rm -f lib/storage/app_database.g.dart
           mkdir -p assets/models
-        working-directory: ${{ github.workspace }}
 
       - name: Generate code (build_runner)
         run: dart run build_runner build --delete-conflicting-outputs
-        working-directory: ${{ github.workspace }}
 
       # ── 8. Run unit tests ─────────────────────────────────────────────────
       - name: flutter test
         run: flutter test test/chat_history_test.dart --reporter compact
-        working-directory: ${{ github.workspace }}
 
       # ── 9. Build debug APK (always — for quick sideload testing) ─────────
       - name: Build debug APK
         run: flutter build apk --debug --verbose
-        working-directory: ${{ github.workspace }}
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
@@ -169,25 +141,19 @@ GROOVY_SIGNING
           retention-days: 14
 
       # ── 10. Build release AAB (only when keystore secrets are present) ────
-      # To enable: add KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS,
-      # KEY_PASSWORD as GitHub Actions repository secrets.
-      # See docs/PLAY_STORE_SETUP.md for how to generate the keystore.
       - name: Build release AAB (Play Store)
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
-        run: flutter build appbundle --release --verbose
-        working-directory: ${{ github.workspace }}
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: flutter build appbundle --release --verbose
 
       - name: Upload release AAB artifact
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
