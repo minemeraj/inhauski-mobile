@@ -192,24 +192,25 @@ class LlamaService extends ChangeNotifier {
     }
   }
 
-  /// Convert role/content message list into a ChatML prompt string.
+  /// Convert role/content message list into a Gemma 4 prompt string.
+  ///
+  /// Gemma 4 uses a turn-based template (not ChatML):
+  ///   <bos><|turn>system\n{content}<turn|>
+  ///   <|turn>user\n{content}<turn|>
+  ///   <|turn>model\n{content}<turn|>
+  /// The final assistant turn is left open for the model to complete.
   String _buildPrompt(List<Map<String, String>> messages) {
     final buf = StringBuffer();
+    buf.write('<bos>');
     for (final msg in messages) {
       final role = msg['role'] ?? 'user';
       final content = msg['content'] ?? '';
-      switch (role) {
-        case 'system':
-          buf.write('<|im_start|>system\n$content<|im_end|>\n');
-          break;
-        case 'assistant':
-          buf.write('<|im_start|>assistant\n$content<|im_end|>\n');
-          break;
-        default: // user
-          buf.write('<|im_start|>user\n$content<|im_end|>\n');
-      }
+      // Gemma 4 uses 'model' for the assistant role.
+      final templateRole = role == 'assistant' ? 'model' : role;
+      buf.write('<|turn>$templateRole\n$content<turn|>\n');
     }
-    buf.write('<|im_start|>assistant\n');
+    // Open the model turn for the response.
+    buf.write('<|turn>model\n');
     return buf.toString();
   }
 
